@@ -33,7 +33,7 @@ jobs:
 
   test:
     name: Test
-    runs-on: ${{ matrix.os }}
+    runs-on: {% raw %}${{ matrix.os }}{% endraw %}
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
@@ -49,10 +49,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python {% raw %}${{ matrix.python-version }}{% endraw %}
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: {% raw %}${{ matrix.python-version }}{% endraw %}
       
       - name: Install uv
         uses: astral-sh/setup-uv@v3
@@ -66,7 +66,7 @@ jobs:
         run: ./test.sh
       
       - name: Upload coverage to Codecov
-        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '{{ python_version }}'
+        if: {% raw %}matrix.os == 'ubuntu-latest' && matrix.python-version == {% endraw %}'{{ python_version }}'
         uses: codecov/codecov-action@v4
         with:
           file: ./coverage.xml

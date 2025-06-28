@@ -88,13 +88,13 @@ docker-dev-down: ## Stop development environment
 
 # Version management
 version-patch: ## Bump patch version
-	uv run bumpversion patch
+	uv run bump2version patch
 
 version-minor: ## Bump minor version
-	uv run bumpversion minor
+	uv run bump2version minor
 
 version-major: ## Bump major version
-	uv run bumpversion major
+	uv run bump2version major
 
 # Documentation
 docs-serve: ## Serve documentation locally
