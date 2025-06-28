@@ -1,0 +1,27 @@
+# Copier settings.
+_subdirectory: template
+_exclude: ["~*", "*.py[co]", "__pycache__", ".git", ".DS_Store", ".svn"]
+
+# Prompts.
+project_name:
+  type: str
+  help: What is the name of your project?
+  validator: >-
+    {% if not (project_name | regex_search('^[a-z0-9\_]+$')) %}
+    Project name must be made up of lowercase letters, digits
+    and underscores only.
+    {% endif %}
+
+project_description:
+  type: str
+  help: Please provide a short description of your project.
+
+port:
+  type: int
+  help: What port number do you want to run the API on?
+  default: 80
+
+python_version:
+  type: str
+  help: What version of Python would you like to use?
+  default: "3.11.10"

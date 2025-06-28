@@ -1,0 +1,31 @@
+name: Run linting and tests
+
+on:
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build and test with devcontainer
+        uses: devcontainers/ci@v0.3
+        with:
+          runCmd: |
+            poetry install
+            poetry run ./lint.sh
+            
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build and test with devcontainer
+        uses: devcontainers/ci@v0.3
+        with:
+          runCmd: |
+            poetry install
+            poetry run ./test.sh

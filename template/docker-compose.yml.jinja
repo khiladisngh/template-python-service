@@ -1,0 +1,12 @@
+name: {{ project_name }}
+
+services:
+  {{ project_name }}:
+    build:
+      context: .
+      target: runtime
+      dockerfile: Dockerfile
+    image: {{ project_name }}
+    container_name: {{ project_name }}
+    ports:
+      - "{{ port }}:{{ port }}"

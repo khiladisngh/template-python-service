@@ -1,0 +1,19 @@
+name: {{ project_name }}-dev
+
+services:
+  {{ project_name }}:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+
+    image: {{ project_name }}-dev
+    container_name: {{ project_name }}-dev
+    # Prevent the container from exiting after initialisation
+    command: /bin/sh -c "while sleep 1000; do :; done"
+
+    volumes:
+      # Bind mount source code
+      - ..:/home/vscode/workspace/{{ project_name }}:cached
+      # Mount shared storage.
+      - /tech:/tech:rw
