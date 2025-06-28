@@ -6,7 +6,26 @@ services:
       context: .
       target: runtime
       dockerfile: Dockerfile
-    image: {{ project_name }}
+    image: {{ project_name }}:latest
     container_name: {{ project_name }}
-    ports:
-      - "{{ port }}:{{ port }}"
+    command: ["--help"]
+    volumes:
+      - ./data:/app/data:rw  # Mount for data persistence
+    environment:
+      - PYTHONUNBUFFERED=1
+    profiles:
+      - prod
+
+  dev:
+    build:
+      context: .devcontainer
+      dockerfile: Dockerfile
+    image: {{ project_name }}-dev:latest
+    container_name: {{ project_name }}-dev
+    volumes:
+      - ..:/workspace:cached
+    command: sleep infinity
+    environment:
+      - PYTHONUNBUFFERED=1
+    profiles:
+      - dev

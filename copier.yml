@@ -16,12 +16,38 @@ project_description:
   type: str
   help: Please provide a short description of your project.
 
-port:
-  type: int
-  help: What port number do you want to run the API on?
-  default: 80
+author_name:
+  type: str
+  help: What is your full name?
+  default: "Your Name"
+
+author_email:
+  type: str
+  help: What is your email address?
+  default: "your.email@example.com"
+
+cli_name:
+  type: str
+  help: What should the CLI command be called?
+  default: "{{ project_name.replace('_', '-') }}"
 
 python_version:
   type: str
   help: What version of Python would you like to use?
-  default: "3.11.10"
+  default: "3.12"
+  choices:
+    - "3.10"
+    - "3.11" 
+    - "3.12"
+    - "3.13"
+
+license:
+  type: str
+  help: Which license would you like to use?
+  default: "MIT"
+  choices:
+    - "MIT"
+    - "Apache-2.0"
+    - "GPL-3.0"
+    - "BSD-3-Clause"
+    - "None"

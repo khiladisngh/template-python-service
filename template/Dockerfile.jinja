@@ -2,87 +2,83 @@
 # Multi Stage: Bake Image
 # ==============================================================================
 
-FROM python:{{ python_version }} AS bake
+FROM python:{{ python_version }}-slim AS bake
 
 # Arguments associated with the non-root user
-ARG USERNAME={{project_name}}-svc
+ARG USERNAME={{ project_name }}-svc
 ARG USER_UID=1000
 ARG USER_GID=$USER_UID
 
-# Set environment variables
-ENV POETRY_VIRTUALENVS_IN_PROJECT=1 \
-    POETRY_HOME=/home/${USERNAME}/poetry \
-    PYTHONUNBUFFERED=1
+# Set environment variables for uv
+ENV UV_CACHE_DIR=/tmp/uv-cache \
+    UV_PYTHON_PREFERENCE=only-system \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
 
-# Add poetry executable to PATH
-ENV PATH="$POETRY_HOME/bin:$PATH"
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
-# Set working directory
-WORKDIR /app
+# Install uv
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.cargo/bin:$PATH"
 
 # Add the non-root user
 RUN groupadd --gid "$USER_GID" "$USERNAME" \
     && useradd --uid "$USER_UID" --gid "$USER_GID" -m "$USERNAME"
 
-# Make working directory
-RUN mkdir -p /app && chown ${USER_UID}:${USER_GID} /app
+# Set working directory
+WORKDIR /app
 
-# Switch to the non-root user to install applications on the user level
+# Make working directory owned by the service user
+RUN chown ${USER_UID}:${USER_GID} /app
+
+# Switch to the non-root user
 USER ${USERNAME}
 
-# Explicitly populate home directory variable
-ENV HOME=/home/${USERNAME}
+# Copy dependency files
+COPY --chown=${USER_UID}:${USER_GID} pyproject.toml README.md ./
 
-# Install poetry
-RUN mkdir -p /home/${USERNAME}/poetry && \
-    curl --proto "=https" -sSL https://install.python-poetry.org | python3 -
+# Install dependencies
+RUN uv venv .venv
+RUN uv pip install -e .
 
-# Verify Poetry installation
-RUN poetry --version
-
-# Copy source code and python dependency specification
-COPY pyproject.toml poetry.lock README.md /app/
-COPY src /app/src
-
-# Install python runtime dependencies in container
-RUN poetry install --without dev
-
-
+# Copy source code
+COPY --chown=${USER_UID}:${USER_GID} src ./src
 
 # ==============================================================================
 # Multi Stage: Runtime Image
 # ==============================================================================
 
-FROM python:{{ python_version }} AS runtime
+FROM python:{{ python_version }}-slim AS runtime
 
-# Create the service user.
-ARG USERNAME={{project_name}}-svc
+# Create the service user
+ARG USERNAME={{ project_name }}-svc
 ARG USER_UID=1000
 ARG USER_GID=$USER_UID
 
 RUN groupadd --gid "$USER_GID" "$USERNAME" \
     && useradd --uid "$USER_UID" --gid "$USER_GID" -m "$USERNAME"
 
-# Copy over baked environment
-# Explicitly copy the possibly ignored .venv folder
-COPY --chown=root:root --chmod=755 --from=bake /app /app
-COPY --chown=root:root --chmod=755 --from=bake /app/.venv /app/.venv
-
-# Copy over baked environment
-# Explicitly copy the possibly ignored .venv folder
-COPY --chown=root:root --chmod=755 --from=bake /home /home
-
-# Switch to the service user.
-USER ${USERNAME}
-
 # Set working directory
 WORKDIR /app
 
-# Set executables in PATH
-ENV PATH="/app/.venv/bin:$PATH"
+# Copy application and virtual environment from bake stage
+COPY --from=bake --chown=${USER_UID}:${USER_GID} /app /app
 
-# Expose the service port
-EXPOSE {{ port }}
+# Switch to the service user
+USER ${USERNAME}
 
-# Command to run the service.
-ENTRYPOINT []
+# Set environment variables
+ENV PATH="/app/.venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD {{ cli_name }} --help > /dev/null || exit 1
+
+# Default command
+ENTRYPOINT ["{{ cli_name }}"]
+CMD ["--help"]

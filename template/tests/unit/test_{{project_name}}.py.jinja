@@ -1,19 +1,124 @@
+"""Unit tests for {{ project_name }}."""
+
 import pytest
+from click.testing import CliRunner
+
+from {{ project_name }}.cli import cli, main
+from {{ project_name }}.core import calculate_something, main_logic
 
 
-@pytest.fixture
-def response():
-    """
-    Sample pytest fixture.
+class TestMainLogic:
+    """Test cases for the main logic functions."""
+    
+    def test_main_logic_single_greeting(self) -> None:
+        """Test single greeting."""
+        result = main_logic("Alice")
+        assert result == "Hello, Alice!"
+    
+    def test_main_logic_multiple_greetings(self) -> None:
+        """Test multiple greetings."""
+        result = main_logic("Bob", 3)
+        assert result == "Hello, Bob! Hello, Bob! Hello, Bob!"
+    
+    def test_main_logic_zero_count(self) -> None:
+        """Test zero count."""
+        result = main_logic("Charlie", 0)
+        assert result == "No greetings requested"
+    
+    def test_main_logic_negative_count_raises_error(self) -> None:
+        """Test that negative count raises ValueError."""
+        with pytest.raises(ValueError, match="Count must be non-negative"):
+            main_logic("David", -1)
+    
+    def test_calculate_something_with_numbers(self) -> None:
+        """Test calculate_something with valid numbers."""
+        result = calculate_something([1.0, 2.0, 3.0])
+        assert result == 2.0
+    
+    def test_calculate_something_empty_list_raises_error(self) -> None:
+        """Test that empty list raises ValueError."""
+        with pytest.raises(ValueError, match="Cannot calculate average of empty list"):
+            calculate_something([])
 
-    See more at: http://doc.pytest.org/en/latest/fixture.html
-    """
-    # import requests
-    # return requests.get('https://github.com/audreyr/cookiecutter-pypackage')
+
+class TestCLI:
+    """Test cases for the CLI interface."""
+    
+    @pytest.fixture
+    def runner(self) -> CliRunner:
+        """Create a CLI runner for testing."""
+        return CliRunner()
+    
+    def test_cli_help(self, runner: CliRunner) -> None:
+        """Test CLI help output."""
+        result = runner.invoke(cli, ["--help"])
+        assert result.exit_code == 0
+        assert "{{ project_description }}" in result.output
+    
+    def test_cli_version(self, runner: CliRunner) -> None:
+        """Test CLI version output."""
+        result = runner.invoke(cli, ["--version"])
+        assert result.exit_code == 0
+        assert "{{ project_name }}" in result.output
+    
+    def test_hello_command_default(self, runner: CliRunner) -> None:
+        """Test hello command with default parameters."""
+        result = runner.invoke(cli, ["hello"])
+        assert result.exit_code == 0
+        assert "Hello, World!" in result.output
+    
+    def test_hello_command_with_name(self, runner: CliRunner) -> None:
+        """Test hello command with custom name."""
+        result = runner.invoke(cli, ["hello", "--name", "Alice"])
+        assert result.exit_code == 0
+        assert "Hello, Alice!" in result.output
+    
+    def test_hello_command_with_count(self, runner: CliRunner) -> None:
+        """Test hello command with count."""
+        result = runner.invoke(cli, ["hello", "--count", "2"])
+        assert result.exit_code == 0
+        assert "Hello, World! Hello, World!" in result.output
+    
+    def test_hello_command_verbose(self, runner: CliRunner) -> None:
+        """Test hello command with verbose flag."""
+        result = runner.invoke(cli, ["-v", "hello"])
+        assert result.exit_code == 0
+        assert "Verbose mode" in result.output
+    
+    def test_version_command(self, runner: CliRunner) -> None:
+        """Test version command."""
+        result = runner.invoke(cli, ["version"])
+        assert result.exit_code == 0
+        assert "{{ project_name }}" in result.output
+        assert "version" in result.output
+    
+    def test_main_function_keyboard_interrupt(self, runner: CliRunner, monkeypatch) -> None:
+        """Test main function handles KeyboardInterrupt."""
+        def mock_cli():
+            raise KeyboardInterrupt()
+        
+        monkeypatch.setattr("{{ project_name }}.cli.cli", mock_cli)
+        
+        result = runner.invoke(main, [], catch_exceptions=False, standalone_mode=False)
+        # The main function should handle the KeyboardInterrupt gracefully
 
 
-def test_content(response):
-    """Sample pytest test function with the pytest fixture as an argument."""
-    # from bs4 import BeautifulSoup
-    # assert 'GitHub' in BeautifulSoup(response.content).title.string
-    assert True == False
+@pytest.mark.integration
+class TestIntegration:
+    """Integration tests."""
+    
+    def test_end_to_end_greeting(self) -> None:
+        """Test end-to-end greeting functionality."""
+        result = main_logic("Integration", 1)
+        assert "Hello, Integration!" in result
+
+
+@pytest.mark.slow
+class TestPerformance:
+    """Performance tests."""
+    
+    def test_large_count_performance(self) -> None:
+        """Test performance with large count."""
+        # This should complete quickly even with large count
+        result = main_logic("Performance", 1000)
+        assert result.count("Hello, Performance!") == 1000
