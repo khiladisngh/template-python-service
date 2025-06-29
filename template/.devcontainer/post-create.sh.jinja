@@ -7,7 +7,7 @@ echo "[*] Current directory: $(pwd)"
 echo "[*] Current user: $(whoami)"
 
 # Navigate to the correct workspace directory
-WORKSPACE_DIR="${1:-/home/vscode/workspace/{{ project_name \}\}}"
+WORKSPACE_DIR="${1:-/home/vscode/workspace/{{ project_name }}}"
 cd "$WORKSPACE_DIR"
 echo "[*] Working in directory: $(pwd)"
 
