@@ -1,4 +1,4 @@
-FROM python:3.12.11-bullseye AS dev
+FROM python:{{ python_version }}-slim AS dev
 
 # Arguments associated with the non-root user
 ARG USERNAME=vscode
