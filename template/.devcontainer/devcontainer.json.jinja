@@ -6,32 +6,85 @@
     "service": "{{project_name}}",
     "workspaceFolder": "/home/vscode/workspace/{{project_name}}",
     "features": {
-        "ghcr.io/devcontainers/features/sshd:1": {}
+        "ghcr.io/devcontainers/features/sshd:1": {},
+        "ghcr.io/devcontainers/features/common-utils:2": {
+            "installZsh": true,
+            "configureZshAsDefaultShell": true
+        },
+        "ghcr.io/devcontainers/features/docker-in-docker:1": {},
     },
     "remoteEnv": {
         "CI": "${localEnv:CI}"
     },
+    "mounts": [
+        "source=${localEnv:HOME}/.zsh_aliases,target=/home/vscode/.zsh_aliases,type=bind,consistency=cached"
+    ],
     "customizations": {
         "vscode": {
             "settings": {
-                "terminal.integrated.defaultProfile.linux": "bash",
-                "terminal.integrated.profiles.linux": {"bash": {"path": "bash"}},
-                "remote.ssh.enableAgentForwarding": true,
-                "jupyter.widgetScriptSources": ["jsdelivr.com", "unpkg.com"]
+                // --- Python Settings ---
+                "python.testing.pytestEnabled": true,
+                "python.testing.pytestArgs": [
+                    "tests"
+                ],
+                // --- Linting and Formatting (Ruff) ---
+                "editor.defaultFormatter": "charliermarsh.ruff",
+                "editor.formatOnSave": true,
+                "[python]": {
+                    "editor.defaultFormatter": "charliermarsh.ruff",
+                    "ruff.fixAll": true,
+                    "ruff.organizeImports": true
+                },
+                "[json]": {
+                    "editor.defaultFormatter": "vscode.json-language-features"
+                },
+                "[jsonc]": {
+                    "editor.defaultFormatter": "vscode.json-language-features"
+                },
+
+                // --- Terminal Settings (Zsh, Starship & Nerd Fonts) ---
+                "terminal.integrated.defaultProfile.linux": "zsh",
+                // We installed "FiraCode Nerd Font Mono" in our Dockerfile.
+                "terminal.integrated.fontFamily": "FiraCode Nerd Font Mono",
+
+                // --- General Editor Settings ---
+                "files.eol": "\n",
+                "files.insertFinalNewline": true,
+                "files.trimTrailingWhitespace": true,
+                "editor.tabSize": 4, // Standard Python indentation
+                "editor.insertSpaces": true, // Use spaces instead of tabs
+                "editor.fontSize": 14, // Comfortable font size for coding
+                // Using a Nerd Font for the editor as well for consistency.
+                "editor.fontFamily": "JetBrainsMono Nerd Font",
+                "editor.rulers": [
+                    80,
+                    120 // Visual guides for line length
+                ]
             },
             "extensions": [
-                "charliermarsh.ruff",
-                "davidanson.vscode-markdownlint",
-                "github.vscode-github-actions",
-                "mechatroner.rainbow-csv",
-                "ms-azuretools.vscode-docker",
-                "ms-python.python",
-                "ms-toolsai.jupyter",
-                "tamasfe.even-better-toml",
-                "vscodevim.vim"
+                // --- Essential Python Tooling ---
+                "ms-python.python", // Core Python support
+                "ms-toolsai.jupyter", // Jupyter support for notebooks
+                "charliermarsh.ruff", // Ruff linter/formatter integration
+                // --- Git & Collaboration ---
+                "eamodio.gitlens", // Supercharges Git features
+                "GitHub.copilot", // Your AI pair programmer
+                "GitHub.copilot-chat", // AI chat for coding assistance
+                "GitHub.vscode-pull-request-github", // GitHub PR support
+                "GitHub.vscode-github-actions", // GitHub Actions support
+                // --- Editor Enhancement & File Support ---
+                "tamasfe.even-better-toml", // TOML file support (for pyproject.toml)
+                "redhat.vscode-yaml", // YAML file support (for pre-commit)
+                "vscode-icons-team.vscode-icons", // File icons for better navigation
+                "ms-vscode.cpptools", // C/C++ support (if needed)
+                "oderwat.indent-rainbow", // Makes indentation more readable
+                "usernamehw.errorlens", // Highlights errors inline
+                // --- Container/System Tooling ---
+                "ms-azuretools.vscode-docker", // Manage Docker from within VS Code
+                "ms-azuretools.vscode-containers" // Manage Dev Containers
             ]
         }
     },
     "remoteUser": "vscode",
-    "postCreateCommand": "bash ./.devcontainer/post-install.sh ${containerWorkspaceFolder}",
+    "postCreateCommand": "bash ./.devcontainer/post-create.sh ${containerWorkspaceFolder}",
 }

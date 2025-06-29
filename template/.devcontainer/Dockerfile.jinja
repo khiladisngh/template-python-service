@@ -9,23 +9,50 @@ ARG USER_GID=${USER_UID}
 ENV UV_CACHE_DIR=/tmp/uv-cache \
     UV_PYTHON_PREFERENCE=only-system \
     PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
+    PYTHONDONTWRITEBYTECODE=1 \
+    DEBIAN_FRONTEND=noninteractive
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
-    git \
+    bash \
+    zsh \
     curl \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
+    git \
+    gnupg \
+    exa \
+    ripgrep \
+    fzf \
+    fontconfig \
+    sudo \
+    eza \
+    ripgrep \
+    bat \
+    fd-find \
+    zoxide \
+    atuin \
+    # We add a symlink because the 'bat' command is 'batcat' on Debian-based systems.
+    && ln -s /usr/bin/batcat /usr/local/bin/bat \
+    # fd-find is the package name for the 'fd' command.
+    && apt-get -y install --no-install-recommends fd-find \
+    && ln -s $(which fdfind) /usr/local/bin/fd \
+    # Clean up apt lists to keep the image size down.
+    && apt-get clean -y && rm -rf /var/lib/apt/lists/*
 
 # Install uv
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Copy our aliases file into a system-wide location
+COPY aliases.sh /etc/profile.d/aliases.sh
 
 # Add the non-root user
 RUN groupadd --gid "${USER_GID}" "${USERNAME}" \
     && useradd --uid "${USER_UID}" --gid "${USER_GID}" -m "${USERNAME}" \
     && mkdir -p /home/${USERNAME}/.vscode-server /home/${USERNAME}/.vscode-server-insiders \
     && chown ${USER_UID}:${USER_GID} /home/${USERNAME}/.vscode-server*
+
+# Install FiraCode and JetBrains Mono Nerd Fonts
+RUN echo -e "15" | bash -c "$(curl -fsSL https://raw.githubusercontent.com/officialrajdeepsingh/nerd-fonts-installer/main/install.sh)" \
+    && echo -e "28" | bash -c "$(curl -fsSL https://raw.githubusercontent.com/officialrajdeepsingh/nerd-fonts-installer/main/install.sh)"
 
 # Switch to the non-root user
 USER ${USERNAME}
