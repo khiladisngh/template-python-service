@@ -1,0 +1,18 @@
+"""{{ project_name }} - {{ project_description }}"""
+
+__version__ = "0.1.0"
+__author__ = "{{ author_name }}"
+__email__ = "{{ author_email }}"
+
+from .hello_world import HelloWorldGenerator, GreetingStyle, GreetingStats
+from .utils import validate_name, sanitize_name, ColorUtils
+
+__all__ = [
+    "__version__",
+    "HelloWorldGenerator",
+    "GreetingStyle", 
+    "GreetingStats",
+    "validate_name",
+    "sanitize_name",
+    "ColorUtils"
+]

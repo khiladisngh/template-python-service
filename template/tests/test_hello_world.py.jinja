@@ -1,0 +1,287 @@
+"""Unit tests for hello_world module."""
+
+import pytest
+from unittest.mock import patch, MagicMock
+from rich.text import Text
+from rich.panel import Panel
+
+from {{ project_name }}.hello_world import (
+    HelloWorldGenerator, 
+    GreetingStyle, 
+    GreetingConfig,
+    GreetingStats,
+    create_sample_greetings
+)
+
+
+@pytest.mark.unit
+@pytest.mark.greeting
+class TestGreetingConfig:
+    """Test GreetingConfig dataclass."""
+    
+    def test_greeting_config_creation(self):
+        """Test creating a GreetingConfig instance."""
+        config = GreetingConfig(name="Test", style=GreetingStyle.SIMPLE)
+        
+        assert config.name == "Test"
+        assert config.style == GreetingStyle.SIMPLE
+        assert config.colors is not None
+        assert len(config.colors) > 0
+        assert config.box_style == "rounded"
+    
+    def test_greeting_config_with_custom_colors(self):
+        """Test GreetingConfig with custom colors."""
+        custom_colors = ["red", "blue"]
+        config = GreetingConfig(
+            name="Test", 
+            style=GreetingStyle.FANCY,
+            colors=custom_colors
+        )
+        
+        assert config.colors == custom_colors
+
+
+@pytest.mark.unit
+@pytest.mark.greeting
+class TestHelloWorldGenerator:
+    """Test HelloWorldGenerator class."""
+    
+    def test_generator_initialization(self, hello_generator):
+        """Test generator initializes correctly."""
+        assert hello_generator is not None
+        assert hasattr(hello_generator, 'console')
+        assert hasattr(hello_generator, '_greeting_templates')
+        assert len(hello_generator._greeting_templates) == 4
+    
+    def test_get_available_styles(self, hello_generator):
+        """Test getting available styles."""
+        styles = hello_generator.get_available_styles()
+        
+        assert len(styles) == 4
+        assert "simple" in styles
+        assert "fancy" in styles
+        assert "rainbow" in styles
+        assert "box" in styles
+    
+    def test_get_random_style(self, hello_generator):
+        """Test getting random style."""
+        style = hello_generator.get_random_style()
+        assert isinstance(style, GreetingStyle)
+        assert style in list(GreetingStyle)
+    
+    @pytest.mark.parametrize("style", list(GreetingStyle))
+    def test_generate_greeting_all_styles(self, hello_generator, style):
+        """Test generating greetings for all styles."""
+        greeting = hello_generator.generate_greeting("World", style)
+        assert greeting is not None
+        
+        # Check return types based on style
+        if style == GreetingStyle.BOX:
+            assert isinstance(greeting, Panel)
+        else:
+            assert isinstance(greeting, Text)
+    
+    def test_generate_greeting_invalid_style(self, hello_generator):
+        """Test generating greeting with invalid style."""
+        with pytest.raises(ValueError, match="Unknown greeting style"):
+            hello_generator.generate_greeting("World", "invalid_style")
+    
+    @pytest.mark.parametrize("name", ["World", "Alice", "Bob", "Test User"])
+    def test_generate_simple_greeting(self, hello_generator, name, mock_random):
+        """Test generating simple greetings."""
+        greeting = hello_generator.generate_greeting(name, GreetingStyle.SIMPLE)
+        
+        assert isinstance(greeting, Text)
+        greeting_str = str(greeting)
+        assert "Hello" in greeting_str
+        assert name in greeting_str
+        assert "👋" in greeting_str
+    
+    def test_generate_fancy_greeting(self, hello_generator, mock_random):
+        """Test generating fancy greetings."""
+        greeting = hello_generator.generate_greeting("World", GreetingStyle.FANCY)
+        
+        assert isinstance(greeting, Text)
+        greeting_str = str(greeting)
+        assert "✨" in greeting_str
+        assert "Hello" in greeting_str
+        assert "World" in greeting_str
+        assert "🎉" in greeting_str
+    
+    def test_generate_rainbow_greeting(self, hello_generator):
+        """Test generating rainbow greetings."""
+        greeting = hello_generator.generate_greeting("Hi", GreetingStyle.RAINBOW)
+        
+        assert isinstance(greeting, Text)
+        greeting_str = str(greeting)
+        assert "Hello" in greeting_str
+        assert "Hi" in greeting_str
+        assert "🌈" in greeting_str
+    
+    def test_generate_box_greeting(self, hello_generator, mock_random):
+        """Test generating box greetings."""
+        greeting = hello_generator.generate_greeting("World", GreetingStyle.BOX)
+        
+        assert isinstance(greeting, Panel)
+        # Panel content should contain the greeting
+        assert "Hello" in str(greeting)
+        assert "World" in str(greeting)
+        assert "🎊" in str(greeting)
+
+
+@pytest.mark.unit
+@pytest.mark.stats
+class TestGreetingStats:
+    """Test GreetingStats class."""
+    
+    def test_stats_initialization(self, greeting_stats):
+        """Test stats initializes correctly."""
+        stats = greeting_stats.get_stats()
+        
+        assert stats["total_greetings"] == 0
+        assert stats["unique_combinations"] == 0
+        assert stats["details"] == {}
+    
+    def test_record_greeting(self, greeting_stats):
+        """Test recording a greeting."""
+        greeting_stats.record_greeting("World", GreetingStyle.SIMPLE)
+        stats = greeting_stats.get_stats()
+        
+        assert stats["total_greetings"] == 1
+        assert stats["unique_combinations"] == 1
+        assert "world_simple" in stats["details"]
+        assert stats["details"]["world_simple"] == 1
+    
+    def test_record_multiple_greetings(self, greeting_stats):
+        """Test recording multiple greetings."""
+        greeting_stats.record_greeting("World", GreetingStyle.SIMPLE)
+        greeting_stats.record_greeting("Alice", GreetingStyle.FANCY)
+        greeting_stats.record_greeting("World", GreetingStyle.SIMPLE)
+        
+        stats = greeting_stats.get_stats()
+        
+        assert stats["total_greetings"] == 3
+        assert stats["unique_combinations"] == 2
+        assert stats["details"]["world_simple"] == 2
+        assert stats["details"]["alice_fancy"] == 1
+    
+    def test_reset_stats(self, greeting_stats):
+        """Test resetting statistics."""
+        greeting_stats.record_greeting("World", GreetingStyle.SIMPLE)
+        greeting_stats.reset_stats()
+        
+        stats = greeting_stats.get_stats()
+        assert stats["total_greetings"] == 0
+        assert stats["unique_combinations"] == 0
+        assert stats["details"] == {}
+    
+    def test_most_popular_greeting_empty(self, greeting_stats):
+        """Test getting most popular greeting when no data."""
+        result = greeting_stats.get_most_popular_greeting()
+        assert "No greetings recorded" in result
+    
+    def test_most_popular_greeting_with_data(self, greeting_stats):
+        """Test getting most popular greeting with data."""
+        greeting_stats.record_greeting("World", GreetingStyle.SIMPLE)
+        greeting_stats.record_greeting("Alice", GreetingStyle.FANCY)
+        greeting_stats.record_greeting("World", GreetingStyle.SIMPLE)
+        greeting_stats.record_greeting("World", GreetingStyle.SIMPLE)
+        
+        result = greeting_stats.get_most_popular_greeting()
+        assert "world_simple" in result
+        assert "used 3 times" in result
+
+
+@pytest.mark.unit
+@pytest.mark.greeting
+def test_create_sample_greetings():
+    """Test creating sample greetings."""
+    samples = create_sample_greetings()
+    
+    assert len(samples) > 0
+    assert len(samples) == 5 * 4  # 5 names × 4 styles
+    
+    # Check structure
+    for sample in samples:
+        assert "name" in sample
+        assert "style" in sample
+        assert "expected_contains" in sample
+        assert isinstance(sample["style"], GreetingStyle)
+        assert sample["expected_contains"] == sample["name"].lower()
+
+
+@pytest.mark.unit
+@pytest.mark.greeting
+@pytest.mark.parametrize("name,style", [
+    ("World", GreetingStyle.SIMPLE),
+    ("Alice", GreetingStyle.FANCY),
+    ("Bob", GreetingStyle.RAINBOW),
+    ("Charlie", GreetingStyle.BOX),
+])
+def test_greeting_contains_name(hello_generator, name, style):
+    """Test that generated greetings contain the specified name."""
+    greeting = hello_generator.generate_greeting(name, style)
+    greeting_str = str(greeting).lower()
+    
+    assert name.lower() in greeting_str
+
+
+@pytest.mark.integration
+@pytest.mark.greeting
+class TestGreetingIntegration:
+    """Integration tests for greeting functionality."""
+    
+    def test_generator_with_stats(self, hello_generator, greeting_stats):
+        """Test generator working with stats tracking."""
+        name = "Integration"
+        style = GreetingStyle.FANCY
+        
+        # Generate greeting
+        greeting = hello_generator.generate_greeting(name, style)
+        
+        # Record in stats
+        greeting_stats.record_greeting(name, style)
+        
+        # Verify both work together
+        assert greeting is not None
+        stats = greeting_stats.get_stats()
+        assert stats["total_greetings"] == 1
+        assert "integration_fancy" in stats["details"]
+    
+    @pytest.mark.slow
+    def test_performance_many_greetings(self, hello_generator, performance_timer):
+        """Test performance with many greetings."""
+        performance_timer.start()
+        
+        for i in range(100):
+            for style in GreetingStyle:
+                hello_generator.generate_greeting(f"User{i}", style)
+        
+        performance_timer.stop()
+        
+        # Should complete in reasonable time (adjust threshold as needed)
+        assert performance_timer.elapsed < 5.0  # 5 seconds
+
+
+@pytest.mark.smoke
+@pytest.mark.greeting
+class TestSmokeTests:
+    """Smoke tests for basic functionality."""
+    
+    def test_can_create_generator(self):
+        """Smoke test: can create generator."""
+        generator = HelloWorldGenerator()
+        assert generator is not None
+    
+    def test_can_generate_basic_greeting(self):
+        """Smoke test: can generate basic greeting."""
+        generator = HelloWorldGenerator()
+        greeting = generator.generate_greeting("Test", GreetingStyle.SIMPLE)
+        assert greeting is not None
+    
+    def test_can_track_stats(self):
+        """Smoke test: can track basic stats."""
+        stats = GreetingStats()
+        stats.record_greeting("Test", GreetingStyle.SIMPLE)
+        result = stats.get_stats()
+        assert result["total_greetings"] > 0

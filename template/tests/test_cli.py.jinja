@@ -1,0 +1,327 @@
+"""Unit tests for CLI module."""
+
+import pytest
+from unittest.mock import patch, MagicMock
+from click.testing import CliRunner
+
+from {{ project_name }}.cli import cli, hello, colors, info
+from {{ project_name }}.hello_world import GreetingStyle
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestCLIBasics:
+    """Test basic CLI functionality."""
+    
+    def test_cli_group_help(self, cli_runner):
+        """Test CLI group help message."""
+        result = cli_runner.invoke(cli, ['--help'])
+        
+        assert result.exit_code == 0
+        assert "{{ project_description }}" in result.output
+        assert "--verbose" in result.output
+        assert "--version" in result.output
+    
+    def test_cli_version(self, cli_runner):
+        """Test CLI version display."""
+        result = cli_runner.invoke(cli, ['--version'])
+        
+        assert result.exit_code == 0
+        assert "0.1.0" in result.output
+    
+    def test_cli_verbose_flag(self, cli_runner):
+        """Test CLI verbose flag."""
+        result = cli_runner.invoke(cli, ['--verbose', 'hello'])
+        
+        assert result.exit_code == 0
+        # Should show verbose output
+        assert "Generating greeting" in result.output
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestHelloCommand:
+    """Test hello command functionality."""
+    
+    def test_hello_command_default(self, cli_runner):
+        """Test hello command with default parameters."""
+        result = cli_runner.invoke(cli, ['hello'])
+        
+        assert result.exit_code == 0
+        assert "Hello, World!" in result.output
+    
+    def test_hello_command_custom_name(self, cli_runner):
+        """Test hello command with custom name."""
+        result = cli_runner.invoke(cli, ['hello', '--name', 'Alice'])
+        
+        assert result.exit_code == 0
+        assert "Hello, Alice!" in result.output
+    
+    @pytest.mark.parametrize("style", ["simple", "fancy", "rainbow", "box"])
+    def test_hello_command_all_styles(self, cli_runner, style):
+        """Test hello command with all available styles."""
+        result = cli_runner.invoke(cli, ['hello', '--style', style])
+        
+        assert result.exit_code == 0
+        assert "Hello" in result.output
+    
+    def test_hello_command_multiple_times(self, cli_runner):
+        """Test hello command with multiple repetitions."""
+        result = cli_runner.invoke(cli, ['hello', '--times', '3'])
+        
+        assert result.exit_code == 0
+        # Should contain multiple greetings
+        hello_count = result.output.count("Hello")
+        assert hello_count >= 3
+    
+    def test_hello_command_animation(self, cli_runner):
+        """Test hello command with animation."""
+        result = cli_runner.invoke(cli, ['hello', '--animate'])
+        
+        assert result.exit_code == 0
+        assert "Hello" in result.output
+    
+    def test_hello_command_invalid_style(self, cli_runner):
+        """Test hello command with invalid style."""
+        result = cli_runner.invoke(cli, ['hello', '--style', 'invalid'])
+        
+        assert result.exit_code != 0
+        assert "Invalid value" in result.output
+    
+    def test_hello_command_short_flags(self, cli_runner):
+        """Test hello command with short flags."""
+        result = cli_runner.invoke(cli, ['hello', '-n', 'Bob', '-s', 'fancy', '-t', '2'])
+        
+        assert result.exit_code == 0
+        assert "Hello" in result.output
+        assert "Bob" in result.output
+    
+    def test_hello_command_verbose(self, cli_runner):
+        """Test hello command with verbose output."""
+        result = cli_runner.invoke(cli, ['--verbose', 'hello', '--name', 'Test'])
+        
+        assert result.exit_code == 0
+        assert "Generating greeting for 'Test'" in result.output
+        assert "Hello, Test!" in result.output
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestColorsCommand:
+    """Test colors command functionality."""
+    
+    def test_colors_command_default(self, cli_runner):
+        """Test colors command with default parameters."""
+        result = cli_runner.invoke(cli, ['colors'])
+        
+        assert result.exit_code == 0
+        assert "Color Palette Demo" in result.output
+        assert "Color Name" in result.output
+        assert "Sample" in result.output
+        assert "Hex Code" in result.output
+    
+    def test_colors_command_custom_count(self, cli_runner):
+        """Test colors command with custom count."""
+        result = cli_runner.invoke(cli, ['colors', '--count', '3'])
+        
+        assert result.exit_code == 0
+        assert "Color Palette Demo" in result.output
+    
+    def test_colors_command_short_flag(self, cli_runner):
+        """Test colors command with short flag."""
+        result = cli_runner.invoke(cli, ['colors', '-c', '7'])
+        
+        assert result.exit_code == 0
+        assert "Color Palette Demo" in result.output
+    
+    def test_colors_command_large_count(self, cli_runner):
+        """Test colors command with very large count."""
+        result = cli_runner.invoke(cli, ['colors', '--count', '100'])
+        
+        assert result.exit_code == 0
+        assert "Color Palette Demo" in result.output
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestInfoCommand:
+    """Test info command functionality."""
+    
+    def test_info_command(self, cli_runner):
+        """Test info command."""
+        result = cli_runner.invoke(cli, ['info'])
+        
+        assert result.exit_code == 0
+        assert "Application Info" in result.output
+        assert "{{ project_name }}" in result.output
+        assert "v0.1.0" in result.output
+        assert "{{ author_name }}" in result.output
+        assert "{{ author_email }}" in result.output
+        assert "{{ license }}" in result.output
+        assert "Built with ❤️" in result.output
+
+
+@pytest.mark.integration
+@pytest.mark.cli
+class TestCLIIntegration:
+    """Integration tests for CLI commands."""
+    
+    def test_multiple_commands_sequence(self, cli_runner):
+        """Test running multiple commands in sequence."""
+        # Test hello command
+        result1 = cli_runner.invoke(cli, ['hello', '--name', 'Integration'])
+        assert result1.exit_code == 0
+        
+        # Test colors command
+        result2 = cli_runner.invoke(cli, ['colors', '--count', '3'])
+        assert result2.exit_code == 0
+        
+        # Test info command
+        result3 = cli_runner.invoke(cli, ['info'])
+        assert result3.exit_code == 0
+    
+    def test_hello_with_all_options(self, cli_runner):
+        """Test hello command with all options combined."""
+        result = cli_runner.invoke(cli, [
+            '--verbose',
+            'hello',
+            '--name', 'ComplexTest',
+            '--style', 'fancy',
+            '--times', '2',
+            '--animate'
+        ])
+        
+        assert result.exit_code == 0
+        assert "ComplexTest" in result.output
+        assert "Generating greeting" in result.output
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestCLIErrorHandling:
+    """Test CLI error handling."""
+    
+    def test_invalid_command(self, cli_runner):
+        """Test running invalid command."""
+        result = cli_runner.invoke(cli, ['invalid_command'])
+        
+        assert result.exit_code != 0
+        assert "No such command" in result.output
+    
+    def test_hello_invalid_times(self, cli_runner):
+        """Test hello command with invalid times value."""
+        result = cli_runner.invoke(cli, ['hello', '--times', 'invalid'])
+        
+        assert result.exit_code != 0
+        assert "Invalid value" in result.output
+    
+    def test_colors_invalid_count(self, cli_runner):
+        """Test colors command with invalid count value."""
+        result = cli_runner.invoke(cli, ['colors', '--count', 'invalid'])
+        
+        assert result.exit_code != 0
+        assert "Invalid value" in result.output
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+@pytest.mark.parametrize("command,expected_patterns", [
+    (['hello'], ["Hello", "World"]),
+    (['hello', '--name', 'Test'], ["Hello", "Test"]),
+    (['colors'], ["Color Palette", "Demo"]),
+    (['info'], ["Application Info", "{{ project_name }}"]),
+])
+def test_command_output_patterns(cli_runner, command, expected_patterns):
+    """Test that commands produce expected output patterns."""
+    result = cli_runner.invoke(cli, command)
+    
+    assert result.exit_code == 0
+    for pattern in expected_patterns:
+        assert pattern in result.output
+
+
+@pytest.mark.smoke
+@pytest.mark.cli
+class TestCLISmokeTests:
+    """Smoke tests for CLI functionality."""
+    
+    def test_cli_basic_functionality(self, cli_runner):
+        """Smoke test: basic CLI functionality works."""
+        result = cli_runner.invoke(cli, ['--help'])
+        assert result.exit_code == 0
+    
+    def test_hello_smoke(self, cli_runner):
+        """Smoke test: hello command works."""
+        result = cli_runner.invoke(cli, ['hello'])
+        assert result.exit_code == 0
+        assert "Hello" in result.output
+    
+    def test_colors_smoke(self, cli_runner):
+        """Smoke test: colors command works."""
+        result = cli_runner.invoke(cli, ['colors'])
+        assert result.exit_code == 0
+    
+    def test_info_smoke(self, cli_runner):
+        """Smoke test: info command works."""
+        result = cli_runner.invoke(cli, ['info'])
+        assert result.exit_code == 0
+
+
+@pytest.mark.slow
+@pytest.mark.cli
+class TestCLIPerformance:
+    """Performance tests for CLI commands."""
+    
+    def test_hello_performance_many_times(self, cli_runner, performance_timer):
+        """Test hello command performance with many repetitions."""
+        performance_timer.start()
+        
+        result = cli_runner.invoke(cli, ['hello', '--times', '50'])
+        
+        performance_timer.stop()
+        
+        assert result.exit_code == 0
+        assert performance_timer.elapsed < 10.0  # Should complete in reasonable time
+    
+    def test_colors_performance_large_count(self, cli_runner, performance_timer):
+        """Test colors command performance with large count."""
+        performance_timer.start()
+        
+        result = cli_runner.invoke(cli, ['colors', '--count', '10'])
+        
+        performance_timer.stop()
+        
+        assert result.exit_code == 0
+        assert performance_timer.elapsed < 5.0  # Should complete quickly
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestCLIHelp:
+    """Test CLI help functionality."""
+    
+    def test_hello_command_help(self, cli_runner):
+        """Test hello command help."""
+        result = cli_runner.invoke(cli, ['hello', '--help'])
+        
+        assert result.exit_code == 0
+        assert "--name" in result.output
+        assert "--style" in result.output
+        assert "--times" in result.output
+        assert "--animate" in result.output
+        assert "Generate a colorful Hello World greeting" in result.output
+    
+    def test_colors_command_help(self, cli_runner):
+        """Test colors command help."""
+        result = cli_runner.invoke(cli, ['colors', '--help'])
+        
+        assert result.exit_code == 0
+        assert "--count" in result.output
+        assert "Display a colorful palette demonstration" in result.output
+    
+    def test_info_command_help(self, cli_runner):
+        """Test info command help."""
+        result = cli_runner.invoke(cli, ['info', '--help'])
+        
+        assert result.exit_code == 0
+        assert "Display application information" in result.output

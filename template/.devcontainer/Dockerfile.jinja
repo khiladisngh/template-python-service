@@ -122,8 +122,8 @@ RUN mkdir -p \
 # --------------------------------------------------------------
 FROM python-deps AS dev
 
-# Copy aliases configuration
-COPY --chown=${USERNAME}:${USERNAME} aliases.sh /etc/profile.d/aliases.sh
+# Add zsh_aliases in .zshrc
+RUN echo "source /home/${USERNAME}/.zsh_aliases" >> /home/${USERNAME}/.zshrc
 
 # Install bat with symlink fix (Debian naming issue)
 USER root

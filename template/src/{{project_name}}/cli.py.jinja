@@ -1,0 +1,169 @@
+"""Command-line interface for {{ project_name }}."""
+
+import random
+from typing import Optional
+
+import click
+from rich.console import Console
+from rich.panel import Panel
+from rich.text import Text
+from rich.table import Table
+from rich import box
+from rich.progress import Progress, SpinnerColumn, TextColumn
+
+from . import __version__
+from .hello_world import HelloWorldGenerator, GreetingStyle
+
+
+console = Console()
+
+
+@click.group()
+@click.version_option(version=__version__)
+@click.option("--verbose", "-v", is_flag=True, help="Enable verbose output")
+@click.pass_context
+def cli(ctx: click.Context, verbose: bool) -> None:
+    """{{ project_description }}
+    
+    A colorful and feature-rich Hello World application with extensive testing.
+    """
+    ctx.ensure_object(dict)
+    ctx.obj["verbose"] = verbose
+
+
+@cli.command()
+@click.option(
+    "--name", 
+    "-n", 
+    default="World", 
+    help="Name to greet",
+    show_default=True
+)
+@click.option(
+    "--style",
+    "-s",
+    type=click.Choice(["simple", "fancy", "rainbow", "box"], case_sensitive=False),
+    default="simple",
+    help="Greeting style",
+    show_default=True
+)
+@click.option(
+    "--times",
+    "-t",
+    type=int,
+    default=1,
+    help="Number of times to display greeting",
+    show_default=True
+)
+@click.option(
+    "--animate",
+    "-a",
+    is_flag=True,
+    help="Animate the greeting"
+)
+@click.pass_context
+def hello(
+    ctx: click.Context, 
+    name: str, 
+    style: str, 
+    times: int, 
+    animate: bool
+) -> None:
+    """Generate a colorful Hello World greeting."""
+    verbose = ctx.obj.get("verbose", False)
+    
+    if verbose:
+        console.print(f"[dim]Generating greeting for '{name}' with style '{style}'[/dim]")
+    
+    generator = HelloWorldGenerator()
+    greeting_style = GreetingStyle(style.lower())
+    
+    if animate:
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console,
+        ) as progress:
+            task = progress.add_task("Generating greeting...", total=times)
+            
+            for i in range(times):
+                greeting = generator.generate_greeting(name, greeting_style)
+                console.print(greeting)
+                if i < times - 1:
+                    console.print()
+                progress.advance(task)
+    else:
+        for i in range(times):
+            greeting = generator.generate_greeting(name, greeting_style)
+            console.print(greeting)
+            if i < times - 1:
+                console.print()
+
+
+@cli.command()
+@click.option(
+    "--count",
+    "-c",
+    type=int,
+    default=5,
+    help="Number of colors to display",
+    show_default=True
+)
+def colors(count: int) -> None:
+    """Display a colorful palette demonstration."""
+    table = Table(title="🎨 Color Palette Demo", box=box.ROUNDED)
+    table.add_column("Color Name", style="bold")
+    table.add_column("Sample", justify="center")
+    table.add_column("Hex Code", style="dim")
+    
+    colors_list = [
+        ("Red", "red", "#FF0000"),
+        ("Green", "green", "#00FF00"),
+        ("Blue", "blue", "#0000FF"),
+        ("Yellow", "yellow", "#FFFF00"),
+        ("Magenta", "magenta", "#FF00FF"),
+        ("Cyan", "cyan", "#00FFFF"),
+        ("Orange", "orange1", "#FF8C00"),
+        ("Purple", "purple", "#800080"),
+        ("Pink", "pink1", "#FFB6C1"),
+        ("Lime", "lime", "#00FF00"),
+    ]
+    
+    selected_colors = random.sample(colors_list, min(count, len(colors_list)))
+    
+    for color_name, color_style, hex_code in selected_colors:
+        table.add_row(
+            color_name,
+            f"[{color_style}]●●●●●[/{color_style}]",
+            hex_code
+        )
+    
+    console.print(table)
+
+
+@cli.command()
+def info() -> None:
+    """Display application information."""
+    info_panel = Panel.fit(
+        f"""[bold blue]{{ project_name }}[/bold blue] v{__version__}
+        
+[dim]{{ project_description }}[/dim]
+
+[bold]Author:[/bold] {{ author_name }}
+[bold]Email:[/bold] {{ author_email }}
+[bold]License:[/bold] {{ license }}
+
+[italic]Built with ❤️ using Python, Click, and Rich[/italic]""",
+        title="📦 Application Info",
+        border_style="blue"
+    )
+    console.print(info_panel)
+
+
+def main() -> None:
+    """Entry point for the CLI application."""
+    cli()
+
+
+if __name__ == "__main__":
+    main()

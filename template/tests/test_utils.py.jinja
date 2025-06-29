@@ -1,0 +1,335 @@
+"""Unit tests for utils module."""
+
+import pytest
+import json
+import sys
+from pathlib import Path
+from unittest.mock import patch, mock_open, MagicMock
+
+from {{ project_name }}.utils import (
+    get_system_info,
+    validate_name,
+    sanitize_name,
+    create_progress_bar,
+    simulate_work,
+    format_stats_table,
+    get_config_dir,
+    load_config,
+    save_config,
+    ColorUtils
+)
+
+
+@pytest.mark.unit
+@pytest.mark.utils
+class TestSystemInfo:
+    """Test system information functions."""
+    
+    def test_get_system_info(self):
+        """Test getting system information."""
+        info = get_system_info()
+        
+        assert "python_version" in info
+        assert "platform" in info
+        assert "executable" in info
+        assert "path" in info
+        
+        assert info["python_version"] == sys.version
+        assert info["platform"] == sys.platform
+        assert info["executable"] == sys.executable
+        assert len(info["path"]) <= 3
+
+
+@pytest.mark.unit
+@pytest.mark.utils
+class TestNameValidation:
+    """Test name validation functions."""
+    
+    @pytest.mark.parametrize("name", [
+        "World",
+        "Alice",
+        "Bob_Smith", 
+        "Test-User",
+        "a",
+        "Multi Word Name",
+        "Name123",
+    ])
+    def test_validate_name_valid(self, name):
+        """Test validation with valid names."""
+        assert validate_name(name) is True
+    
+    @pytest.mark.parametrize("name", [
+        "",  # Empty string
+        " ",  # Just whitespace
+        None,  # None value
+        123,  # Non-string
+        "x" * 100,  # Too long
+        "test@#$%",  # Invalid characters
+        "test\nname",  # Newline
+        "test\ttab",  # Tab
+    ])
+    def test_validate_name_invalid(self, name):
+        """Test validation with invalid names."""
+        assert validate_name(name) is False
+    
+    def test_sanitize_name_valid(self):
+        """Test sanitizing valid names."""
+        assert sanitize_name("World") == "World"
+        assert sanitize_name("Alice Bob") == "Alice Bob"
+        assert sanitize_name("Test_User") == "Test_User"
+    
+    def test_sanitize_name_invalid(self):
+        """Test sanitizing invalid names."""
+        assert sanitize_name("") == "Anonymous"
+        assert sanitize_name(None) == "Anonymous"
+        assert sanitize_name("   ") == "Anonymous"
+    
+    def test_sanitize_name_cleanup(self):
+        """Test sanitizing names that need cleanup."""
+        assert sanitize_name("test@#$%") == "test"
+        assert sanitize_name("  Alice  ") == "Alice"
+        assert sanitize_name("x" * 100) == "x" * 50
+        assert sanitize_name("test\nname") == "testname"
+
+
+@pytest.mark.unit
+@pytest.mark.utils
+class TestProgressBar:
+    """Test progress bar functions."""
+    
+    def test_create_progress_bar(self):
+        """Test creating a progress bar."""
+        progress = create_progress_bar("Testing")
+        assert progress is not None
+        # Rich Progress objects have specific attributes
+        assert hasattr(progress, 'add_task')
+        assert hasattr(progress, 'advance')
+    
+    def test_create_progress_bar_custom_description(self):
+        """Test creating progress bar with custom description."""
+        progress = create_progress_bar("Custom Task")
+        assert progress is not None
+    
+    @pytest.mark.slow
+    def test_simulate_work(self, performance_timer):
+        """Test work simulation."""
+        performance_timer.start()
+        simulate_work(duration=0.1, steps=5)  # Fast test
+        performance_timer.stop()
+        
+        # Should take approximately the specified duration
+        assert 0.05 < performance_timer.elapsed < 0.3  # Allow some variance
+
+
+@pytest.mark.unit
+@pytest.mark.utils
+class TestStatsFormatting:
+    """Test statistics formatting."""
+    
+    def test_format_stats_table_empty(self):
+        """Test formatting empty stats."""
+        stats = {"total_greetings": 0, "unique_combinations": 0, "details": {}}
+        table = format_stats_table(stats)
+        
+        assert table is not None
+        assert "Statistics" in str(table)
+    
+    def test_format_stats_table_with_data(self):
+        """Test formatting stats with data."""
+        stats = {
+            "total_greetings": 10,
+            "unique_combinations": 5,
+            "details": {
+                "world_simple": 3,
+                "alice_fancy": 2,
+                "bob_rainbow": 1
+            }
+        }
+        table = format_stats_table(stats)
+        
+        assert table is not None
+        table_str = str(table)
+        assert "10" in table_str  # total_greetings
+        assert "5" in table_str   # unique_combinations
+
+
+@pytest.mark.unit
+@pytest.mark.utils
+@pytest.mark.config
+class TestConfigManagement:
+    """Test configuration management."""
+    
+    def test_get_config_dir_unix(self):
+        """Test getting config dir on Unix systems."""
+        with patch('sys.platform', 'linux'):
+            config_dir = get_config_dir()
+            assert config_dir.name == "{{ project_name }}"
+            assert ".config" in str(config_dir)
+    
+    def test_get_config_dir_windows(self):
+        """Test getting config dir on Windows."""
+        with patch('sys.platform', 'win32'):
+            config_dir = get_config_dir()
+            assert config_dir.name == "{{ project_name }}"
+            assert "AppData" in str(config_dir) or "Local" in str(config_dir)
+    
+    def test_load_config_default(self, temp_config_dir):
+        """Test loading default config when file doesn't exist."""
+        with patch('{{ project_name }}.utils.get_config_dir', return_value=temp_config_dir):
+            config = load_config()
+            
+            assert "default_style" in config
+            assert "default_name" in config
+            assert "animation_enabled" in config
+            assert "colors" in config
+            assert config["default_style"] == "simple"
+    
+    def test_load_config_from_file(self, config_file):
+        """Test loading config from existing file."""
+        config = load_config(str(config_file))
+        
+        assert config["default_style"] == "fancy"
+        assert config["default_name"] == "Tester"
+        assert config["animation_enabled"] is False
+        assert config["colors"] == ["red", "blue", "green"]
+    
+    def test_load_config_invalid_json(self, temp_config_dir):
+        """Test loading config with invalid JSON."""
+        invalid_config = temp_config_dir / "invalid.json"
+        with open(invalid_config, 'w') as f:
+            f.write("invalid json content")
+        
+        config = load_config(str(invalid_config))
+        
+        # Should return default config
+        assert config["default_style"] == "simple"
+    
+    def test_save_config_success(self, temp_config_dir, sample_config):
+        """Test saving config successfully."""
+        config_file = temp_config_dir / "test_config.json"
+        
+        result = save_config(sample_config, str(config_file))
+        
+        assert result is True
+        assert config_file.exists()
+        
+        # Verify saved content
+        with open(config_file, 'r') as f:
+            saved_config = json.load(f)
+        assert saved_config == sample_config
+    
+    def test_save_config_failure(self, sample_config):
+        """Test saving config to invalid path."""
+        invalid_path = "/invalid/path/config.json"
+        
+        result = save_config(sample_config, invalid_path)
+        
+        assert result is False
+
+
+@pytest.mark.unit
+@pytest.mark.utils
+class TestColorUtils:
+    """Test ColorUtils class."""
+    
+    def test_colors_list_exists(self, color_utils):
+        """Test that COLORS list exists and has content."""
+        assert hasattr(color_utils, 'COLORS')
+        assert len(color_utils.COLORS) > 0
+        assert isinstance(color_utils.COLORS, list)
+    
+    def test_get_random_color(self, color_utils):
+        """Test getting a random color."""
+        color = color_utils.get_random_color()
+        assert color in color_utils.COLORS
+    
+    def test_get_color_palette(self, color_utils):
+        """Test getting a color palette."""
+        palette = color_utils.get_color_palette(5)
+        
+        assert len(palette) == 5
+        for color in palette:
+            assert color in color_utils.COLORS
+        
+        # Should be unique colors
+        assert len(set(palette)) == len(palette)
+    
+    def test_get_color_palette_large_count(self, color_utils):
+        """Test getting palette larger than available colors."""
+        max_colors = len(color_utils.COLORS)
+        palette = color_utils.get_color_palette(max_colors + 10)
+        
+        # Should return all available colors
+        assert len(palette) == max_colors
+    
+    @pytest.mark.parametrize("color", ["red", "green", "blue", "yellow"])
+    def test_is_valid_color_valid(self, color_utils, color):
+        """Test validation with valid colors."""
+        assert color_utils.is_valid_color(color) is True
+    
+    @pytest.mark.parametrize("color", ["invalid", "not_a_color", "", None])
+    def test_is_valid_color_invalid(self, color_utils, color):
+        """Test validation with invalid colors."""
+        assert color_utils.is_valid_color(color) is False
+
+
+@pytest.mark.integration
+@pytest.mark.utils
+@pytest.mark.config
+class TestConfigIntegration:
+    """Integration tests for configuration."""
+    
+    def test_save_and_load_config_roundtrip(self, temp_config_dir, sample_config):
+        """Test saving and loading config in a roundtrip."""
+        config_file = temp_config_dir / "roundtrip.json"
+        
+        # Save config
+        save_result = save_config(sample_config, str(config_file))
+        assert save_result is True
+        
+        # Load config
+        loaded_config = load_config(str(config_file))
+        
+        # Should match original
+        assert loaded_config == sample_config
+
+
+@pytest.mark.smoke
+@pytest.mark.utils
+class TestUtilsSmokeTests:
+    """Smoke tests for utility functions."""
+    
+    def test_validate_name_basic(self):
+        """Smoke test: basic name validation."""
+        assert validate_name("Test") is True
+        assert validate_name("") is False
+    
+    def test_sanitize_name_basic(self):
+        """Smoke test: basic name sanitization."""
+        result = sanitize_name("Test")
+        assert result == "Test"
+    
+    def test_color_utils_basic(self):
+        """Smoke test: basic color utilities."""
+        color = ColorUtils.get_random_color()
+        assert ColorUtils.is_valid_color(color) is True
+    
+    def test_config_dir_creation(self):
+        """Smoke test: config directory can be determined."""
+        config_dir = get_config_dir()
+        assert isinstance(config_dir, Path)
+        assert config_dir.exists()  # Should be created
+
+
+@pytest.mark.unit
+@pytest.mark.utils
+@pytest.mark.parametrize("platform,expected_path", [
+    ("linux", ".config"),
+    ("darwin", ".config"),
+    ("win32", "AppData"),
+])
+def test_get_config_dir_platforms(platform, expected_path):
+    """Test config dir for different platforms."""
+    with patch('sys.platform', platform):
+        config_dir = get_config_dir()
+        assert expected_path in str(config_dir)

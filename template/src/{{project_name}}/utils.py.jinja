@@ -1,0 +1,228 @@
+"""Utility functions for {{ project_name }}."""
+
+import sys
+import time
+from typing import List, Dict, Any, Optional
+from pathlib import Path
+
+from rich.console import Console
+from rich.progress import Progress, TimeElapsedColumn, BarColumn, TextColumn
+from rich.table import Table
+
+
+def get_system_info() -> Dict[str, Any]:
+    """Get system information."""
+    return {
+        "python_version": sys.version,
+        "platform": sys.platform,
+        "executable": sys.executable,
+        "path": sys.path[:3],  # First 3 paths
+    }
+
+
+def validate_name(name: str) -> bool:
+    """Validate if a name is suitable for greetings.
+    
+    Args:
+        name: Name to validate
+        
+    Returns:
+        True if name is valid, False otherwise
+    """
+    if not name or not isinstance(name, str):
+        return False
+    
+    # Check if name contains only valid characters
+    if not name.replace(" ", "").replace("-", "").replace("_", "").isalnum():
+        return False
+    
+    # Check length
+    if len(name.strip()) < 1 or len(name.strip()) > 50:
+        return False
+    
+    return True
+
+
+def sanitize_name(name: str) -> str:
+    """Sanitize a name for safe usage.
+    
+    Args:
+        name: Name to sanitize
+        
+    Returns:
+        Sanitized name
+    """
+    if not name:
+        return "Anonymous"
+    
+    # Remove extra whitespace and limit length
+    sanitized = name.strip()[:50]
+    
+    # Replace problematic characters
+    sanitized = "".join(c for c in sanitized if c.isalnum() or c in " -_")
+    
+    return sanitized or "Anonymous"
+
+
+def create_progress_bar(description: str = "Processing") -> Progress:
+    """Create a configured progress bar.
+    
+    Args:
+        description: Description for the progress bar
+        
+    Returns:
+        Configured Progress instance
+    """
+    return Progress(
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+        TimeElapsedColumn(),
+    )
+
+
+def simulate_work(duration: float = 1.0, steps: int = 10) -> None:
+    """Simulate work with a progress bar.
+    
+    Args:
+        duration: Total duration in seconds
+        steps: Number of steps to simulate
+    """
+    console = Console()
+    
+    with create_progress_bar("Working") as progress:
+        task = progress.add_task("Processing...", total=steps)
+        
+        step_duration = duration / steps
+        for _ in range(steps):
+            time.sleep(step_duration)
+            progress.advance(task)
+
+
+def format_stats_table(stats: Dict[str, Any]) -> Table:
+    """Format statistics as a rich table.
+    
+    Args:
+        stats: Statistics dictionary
+        
+    Returns:
+        Formatted table
+    """
+    table = Table(title="📊 Statistics", show_header=True, header_style="bold magenta")
+    table.add_column("Metric", style="cyan")
+    table.add_column("Value", style="green")
+    
+    # Add main stats
+    table.add_row("Total Greetings", str(stats.get("total_greetings", 0)))
+    table.add_row("Unique Combinations", str(stats.get("unique_combinations", 0)))
+    
+    # Add details if available
+    details = stats.get("details", {})
+    if details:
+        table.add_section()
+        for key, value in list(details.items())[:5]:  # Show top 5
+            formatted_key = key.replace("_", " ").title()
+            table.add_row(formatted_key, str(value))
+    
+    return table
+
+
+def get_config_dir() -> Path:
+    """Get the configuration directory for the application.
+    
+    Returns:
+        Path to configuration directory
+    """
+    if sys.platform == "win32":
+        config_dir = Path.home() / "AppData" / "Local" / "{{ project_name }}"
+    else:
+        config_dir = Path.home() / ".config" / "{{ project_name }}"
+    
+    config_dir.mkdir(parents=True, exist_ok=True)
+    return config_dir
+
+
+def load_config(config_file: Optional[str] = None) -> Dict[str, Any]:
+    """Load configuration from file.
+    
+    Args:
+        config_file: Optional path to config file
+        
+    Returns:
+        Configuration dictionary
+    """
+    if config_file:
+        config_path = Path(config_file)
+    else:
+        config_path = get_config_dir() / "config.json"
+    
+    if config_path.exists():
+        try:
+            import json
+            with open(config_path, 'r') as f:
+                return json.load(f)
+        except (json.JSONDecodeError, IOError):
+            pass
+    
+    # Return default config
+    return {
+        "default_style": "simple",
+        "default_name": "World",
+        "animation_enabled": True,
+        "colors": [
+            "red", "green", "blue", "yellow", "magenta", 
+            "cyan", "orange1", "purple", "pink1", "lime"
+        ]
+    }
+
+
+def save_config(config: Dict[str, Any], config_file: Optional[str] = None) -> bool:
+    """Save configuration to file.
+    
+    Args:
+        config: Configuration dictionary to save
+        config_file: Optional path to config file
+        
+    Returns:
+        True if successful, False otherwise
+    """
+    if config_file:
+        config_path = Path(config_file)
+    else:
+        config_path = get_config_dir() / "config.json"
+    
+    try:
+        import json
+        with open(config_path, 'w') as f:
+            json.dump(config, f, indent=2)
+        return True
+    except (IOError, TypeError):
+        return False
+
+
+class ColorUtils:
+    """Utility class for color operations."""
+    
+    COLORS = [
+        "red", "green", "blue", "yellow", "magenta", 
+        "cyan", "orange1", "purple", "pink1", "lime",
+        "white", "black", "bright_red", "bright_green",
+        "bright_blue", "bright_yellow", "bright_magenta", "bright_cyan"
+    ]
+    
+    @classmethod
+    def get_random_color(cls) -> str:
+        """Get a random color."""
+        import random
+        return random.choice(cls.COLORS)
+    
+    @classmethod
+    def get_color_palette(cls, count: int = 5) -> List[str]:
+        """Get a color palette of specified size."""
+        import random
+        return random.sample(cls.COLORS, min(count, len(cls.COLORS)))
+    
+    @classmethod
+    def is_valid_color(cls, color: str) -> bool:
+        """Check if a color is valid."""
+        return color in cls.COLORS

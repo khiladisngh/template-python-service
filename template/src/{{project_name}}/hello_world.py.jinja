@@ -1,0 +1,168 @@
+"""Core Hello World functionality with colorful output."""
+
+import random
+from enum import Enum
+from typing import List, Dict, Any
+from dataclasses import dataclass
+
+from rich.text import Text
+from rich.panel import Panel
+from rich.align import Align
+from rich import box
+from rich.console import Console
+
+
+class GreetingStyle(Enum):
+    """Available greeting styles."""
+    SIMPLE = "simple"
+    FANCY = "fancy"
+    RAINBOW = "rainbow"
+    BOX = "box"
+
+
+@dataclass
+class GreetingConfig:
+    """Configuration for greeting generation."""
+    name: str
+    style: GreetingStyle
+    colors: List[str] = None
+    box_style: str = "rounded"
+    
+    def __post_init__(self):
+        if self.colors is None:
+            self.colors = [
+                "red", "green", "blue", "yellow", "magenta", 
+                "cyan", "orange1", "purple", "pink1", "lime"
+            ]
+
+
+class HelloWorldGenerator:
+    """Generator for colorful Hello World greetings."""
+    
+    def __init__(self):
+        self.console = Console()
+        self._greeting_templates = {
+            GreetingStyle.SIMPLE: self._generate_simple,
+            GreetingStyle.FANCY: self._generate_fancy,
+            GreetingStyle.RAINBOW: self._generate_rainbow,
+            GreetingStyle.BOX: self._generate_box,
+        }
+    
+    def generate_greeting(self, name: str, style: GreetingStyle) -> Any:
+        """Generate a greeting with the specified style.
+        
+        Args:
+            name: Name to greet
+            style: Style of the greeting
+            
+        Returns:
+            Rich renderable object
+        """
+        config = GreetingConfig(name=name, style=style)
+        generator_func = self._greeting_templates.get(style)
+        
+        if not generator_func:
+            raise ValueError(f"Unknown greeting style: {style}")
+        
+        return generator_func(config)
+    
+    def _generate_simple(self, config: GreetingConfig) -> Text:
+        """Generate a simple colored greeting."""
+        color = random.choice(config.colors)
+        return Text(f"Hello, {config.name}! 👋", style=f"bold {color}")
+    
+    def _generate_fancy(self, config: GreetingConfig) -> Text:
+        """Generate a fancy styled greeting."""
+        text = Text()
+        text.append("✨ ", style="yellow")
+        text.append("Hello", style="bold blue")
+        text.append(", ", style="white")
+        text.append(config.name, style=f"bold {random.choice(config.colors)}")
+        text.append("! ", style="white")
+        text.append("✨", style="yellow")
+        text.append(" 🎉", style="")
+        return text
+    
+    def _generate_rainbow(self, config: GreetingConfig) -> Text:
+        """Generate a rainbow-colored greeting."""
+        message = f"Hello, {config.name}!"
+        text = Text()
+        
+        for i, char in enumerate(message):
+            color = config.colors[i % len(config.colors)]
+            text.append(char, style=f"bold {color}")
+        
+        text.append(" 🌈", style="")
+        return text
+    
+    def _generate_box(self, config: GreetingConfig) -> Panel:
+        """Generate a greeting in a decorative box."""
+        color = random.choice(config.colors)
+        greeting_text = Text(f"Hello, {config.name}! 🎊", style=f"bold {color}", justify="center")
+        
+        return Panel(
+            Align.center(greeting_text),
+            title="[bold yellow]🎯 Greeting[/bold yellow]",
+            border_style=color,
+            box=box.DOUBLE
+        )
+    
+    def get_available_styles(self) -> List[str]:
+        """Get list of available greeting styles."""
+        return [style.value for style in GreetingStyle]
+    
+    def get_random_style(self) -> GreetingStyle:
+        """Get a random greeting style."""
+        return random.choice(list(GreetingStyle))
+
+
+class GreetingStats:
+    """Statistics tracker for greetings."""
+    
+    def __init__(self):
+        self._stats: Dict[str, int] = {}
+        self._total_greetings = 0
+    
+    def record_greeting(self, name: str, style: GreetingStyle) -> None:
+        """Record a greeting generation."""
+        key = f"{name}_{style.value}"
+        self._stats[key] = self._stats.get(key, 0) + 1
+        self._total_greetings += 1
+    
+    def get_stats(self) -> Dict[str, Any]:
+        """Get greeting statistics."""
+        return {
+            "total_greetings": self._total_greetings,
+            "unique_combinations": len(self._stats),
+            "details": self._stats.copy()
+        }
+    
+    def reset_stats(self) -> None:
+        """Reset all statistics."""
+        self._stats.clear()
+        self._total_greetings = 0
+    
+    def get_most_popular_greeting(self) -> str:
+        """Get the most popular greeting combination."""
+        if not self._stats:
+            return "No greetings recorded yet"
+        
+        most_popular = max(self._stats.items(), key=lambda x: x[1])
+        return f"{most_popular[0]} (used {most_popular[1]} times)"
+
+
+def create_sample_greetings() -> List[Dict[str, Any]]:
+    """Create sample greetings for testing."""
+    names = ["World", "Alice", "Bob", "Developer", "Python"]
+    styles = list(GreetingStyle)
+    
+    samples = []
+    for name in names:
+        for style in styles:
+            samples.append({
+                "name": name,
+                "style": style,
+                "expected_contains": name.lower()
+            })
+    
+    return samples

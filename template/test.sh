@@ -27,6 +27,8 @@ echo_error() {
 FAST_MODE=false
 COVERAGE_REPORT=true
 VERBOSE=false
+MARKERS=""
+QUICK=false
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -43,13 +45,50 @@ while [[ $# -gt 0 ]]; do
             VERBOSE=true
             shift
             ;;
+        -m|--markers)
+            MARKERS="$2"
+            shift 2
+            ;;
+        -q|--quick)
+            QUICK=true
+            MARKERS="smoke or unit"
+            shift
+            ;;
+        --unit)
+            MARKERS="unit"
+            shift
+            ;;
+        --integration)
+            MARKERS="integration"
+            shift
+            ;;
+        --smoke)
+            MARKERS="smoke"
+            shift
+            ;;
+        --cli)
+            MARKERS="cli"
+            shift
+            ;;
         -h|--help)
             echo "Usage: $0 [OPTIONS]"
             echo "Options:"
             echo "  --fast       Skip slow tests"
             echo "  --no-cov     Skip coverage reporting"
             echo "  -v, --verbose Verbose output"
+            echo "  -m, --markers Run tests with specific markers"
+            echo "  -q, --quick   Run only quick tests (smoke + unit)"
+            echo "  --unit        Run only unit tests"
+            echo "  --integration Run only integration tests"
+            echo "  --smoke       Run only smoke tests"
+            echo "  --cli         Run only CLI tests"
             echo "  -h, --help   Show this help message"
+            echo ""
+            echo "Examples:"
+            echo "  $0                     # Run all tests"
+            echo "  $0 --quick            # Run quick tests only"
+            echo "  $0 --unit --verbose   # Run unit tests with verbose output"
+            echo "  $0 -m 'not slow'      # Run all tests except slow ones"
             exit 0
             ;;
         *)
@@ -69,6 +108,11 @@ fi
 if [[ "$FAST_MODE" == "true" ]]; then
     PYTEST_ARGS="$PYTEST_ARGS -m 'not slow'"
     echo_info "Running tests in fast mode (skipping slow tests)..."
+elif [[ -n "$MARKERS" ]]; then
+    PYTEST_ARGS="$PYTEST_ARGS -m '$MARKERS'"
+    echo_info "Running tests with markers: $MARKERS"
+elif [[ "$QUICK" == "true" ]]; then
+    echo_info "Running tests in quick mode (smoke + unit tests)..."
 else
     echo_info "Running all tests..."
 fi

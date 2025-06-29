@@ -96,6 +96,13 @@ pip install {{ project_name }}
 | `make install` | Install dependencies |
 | `make test` | Run tests |
 | `make test-fast` | Run tests (skip slow tests) |
+| `make test-quick` | Run quick tests (smoke + unit) |
+| `make test-unit` | Run unit tests only |
+| `make test-integration` | Run integration tests only |
+| `make test-smoke` | Run smoke tests only |
+| `make test-cli` | Run CLI tests only |
+| `make test-verbose` | Run tests with verbose output |
+| `make test-no-cov` | Run tests without coverage |
 | `make lint` | Run linting and formatting |
 | `make format` | Format code |
 | `make type-check` | Run type checking |
@@ -118,6 +125,136 @@ pip install {{ project_name }}
 # Run specific test markers
 uv run pytest -m "not slow"
 uv run pytest -m integration
+```
+
+## 🧪 Testing
+
+This project includes a comprehensive testing suite with different types of tests and extensive pytest configuration.
+
+### Test Structure
+
+```
+tests/
+├── conftest.py              # Pytest fixtures and configuration
+├── test_hello_world.py      # Core functionality tests
+├── test_cli.py              # CLI interface tests
+├── test_utils.py            # Utility function tests
+└── test_integration.py      # Integration tests
+```
+
+### Test Categories
+
+The tests are organized using pytest markers:
+
+- **`unit`**: Fast, isolated unit tests
+- **`integration`**: Tests that verify component interactions
+- **`smoke`**: Basic functionality tests (subset of unit tests)
+- **`slow`**: Tests that take longer to execute
+- **`cli`**: Command-line interface tests
+- **`utils`**: Utility function tests
+- **`greeting`**: Greeting generation tests
+- **`stats`**: Statistics tracking tests
+- **`config`**: Configuration management tests
+
+### Running Specific Test Categories
+
+```bash
+# Run only unit tests
+./test.sh --unit
+
+# Run only integration tests
+./test.sh --integration
+
+# Run smoke tests (quick validation)
+./test.sh --smoke
+
+# Run CLI tests
+./test.sh --cli
+
+# Run quick tests (smoke + unit)
+./test.sh --quick
+
+# Run with custom markers
+./test.sh -m "not slow"
+./test.sh -m "unit and not cli"
+```
+
+### Test Features
+
+#### Fixtures
+
+The `conftest.py` provides comprehensive fixtures:
+
+- **`hello_generator`**: HelloWorldGenerator instance
+- **`greeting_stats`**: GreetingStats instance
+- **`sample_names`**: Parametrized fixture with test names
+- **`sample_styles`**: All greeting styles for testing
+- **`mock_console`**: Mocked Rich console
+- **`temp_config_dir`**: Temporary configuration directory
+- **`config_file`**: Pre-configured test configuration file
+- **`performance_timer`**: Timer for performance testing
+- **`cli_runner`**: Click CLI test runner
+
+#### Parametrized Tests
+
+Many tests use pytest parametrization to test multiple scenarios:
+
+```python
+@pytest.mark.parametrize("style", list(GreetingStyle))
+def test_generate_greeting_all_styles(self, hello_generator, style):
+    # Test all greeting styles automatically
+```
+
+#### Mock Integration
+
+Tests include proper mocking for external dependencies:
+
+```python
+@pytest.fixture
+def mock_random():
+    with patch('random.choice') as mock_choice:
+        mock_choice.return_value = "blue"
+        yield mock_choice
+```
+
+#### Coverage Requirements
+
+- Minimum coverage: 80%
+- Branch coverage enabled
+- Reports generated in multiple formats (terminal, HTML, XML)
+
+### Performance Testing
+
+The suite includes performance tests marked as `slow`:
+
+```bash
+# Skip performance tests for faster feedback
+./test.sh --fast
+
+# Run only performance tests
+./test.sh -m slow
+```
+
+### Test Configuration
+
+Key testing configuration in `pytest.ini`:
+
+```ini
+[tool:pytest]
+testpaths = tests
+addopts = 
+    --strict-markers
+    --cov=src/{{ project_name }}
+    --cov-report=term-missing
+    --cov-report=html
+    --cov-fail-under=80
+    --cov-branch
+
+markers =
+    slow: marks tests as slow
+    integration: marks tests as integration tests
+    unit: marks tests as unit tests
+    smoke: marks tests as smoke tests
 ```
 
 ### Code Quality

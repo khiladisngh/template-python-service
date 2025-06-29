@@ -1,0 +1,378 @@
+"""Integration tests for the entire application."""
+
+import pytest
+import tempfile
+import json
+from pathlib import Path
+from click.testing import CliRunner
+
+from {{ project_name }}.cli import cli
+from {{ project_name }}.hello_world import HelloWorldGenerator, GreetingStyle, GreetingStats
+from {{ project_name }}.utils import save_config, load_config
+
+
+@pytest.mark.integration
+class TestFullApplicationWorkflow:
+    """Test complete application workflows."""
+    
+    def test_complete_greeting_workflow(self, cli_runner):
+        """Test a complete greeting generation workflow."""
+        # Test all greeting styles
+        styles = ["simple", "fancy", "rainbow", "box"]
+        names = ["World", "Alice", "Bob"]
+        
+        for style in styles:
+            for name in names:
+                result = cli_runner.invoke(cli, [
+                    'hello', 
+                    '--name', name, 
+                    '--style', style
+                ])
+                
+                assert result.exit_code == 0
+                assert name in result.output
+                assert "Hello" in result.output
+    
+    def test_configuration_workflow(self, temp_config_dir):
+        """Test configuration save/load workflow."""
+        # Create test config
+        test_config = {
+            "default_style": "rainbow",
+            "default_name": "TestUser",
+            "animation_enabled": True,
+            "colors": ["red", "green", "blue"]
+        }
+        
+        config_file = temp_config_dir / "workflow_config.json"
+        
+        # Save configuration
+        save_result = save_config(test_config, str(config_file))
+        assert save_result is True
+        assert config_file.exists()
+        
+        # Load configuration
+        loaded_config = load_config(str(config_file))
+        assert loaded_config == test_config
+        
+        # Verify specific values
+        assert loaded_config["default_style"] == "rainbow"
+        assert loaded_config["default_name"] == "TestUser"
+        assert loaded_config["animation_enabled"] is True
+    
+    def test_stats_tracking_workflow(self):
+        """Test complete stats tracking workflow."""
+        generator = HelloWorldGenerator()
+        stats = GreetingStats()
+        
+        # Generate various greetings and track stats
+        test_data = [
+            ("Alice", GreetingStyle.SIMPLE),
+            ("Bob", GreetingStyle.FANCY),
+            ("Alice", GreetingStyle.SIMPLE),  # Duplicate
+            ("Charlie", GreetingStyle.RAINBOW),
+            ("Bob", GreetingStyle.BOX),
+        ]
+        
+        for name, style in test_data:
+            # Generate greeting
+            greeting = generator.generate_greeting(name, style)
+            assert greeting is not None
+            
+            # Track in stats
+            stats.record_greeting(name, style)
+        
+        # Verify stats
+        final_stats = stats.get_stats()
+        assert final_stats["total_greetings"] == 5
+        assert final_stats["unique_combinations"] == 4
+        assert final_stats["details"]["alice_simple"] == 2
+        
+        # Test most popular
+        most_popular = stats.get_most_popular_greeting()
+        assert "alice_simple" in most_popular
+        assert "used 2 times" in most_popular
+
+
+@pytest.mark.integration
+class TestCLIApplicationFlow:
+    """Test CLI application flow scenarios."""
+    
+    def test_user_session_simulation(self, cli_runner):
+        """Simulate a typical user session."""
+        # User starts by checking app info
+        result = cli_runner.invoke(cli, ['info'])
+        assert result.exit_code == 0
+        assert "{{ project_name }}" in result.output
+        
+        # User generates a simple greeting
+        result = cli_runner.invoke(cli, ['hello'])
+        assert result.exit_code == 0
+        assert "Hello, World!" in result.output
+        
+        # User tries different styles
+        result = cli_runner.invoke(cli, ['hello', '--style', 'fancy', '--name', 'User'])
+        assert result.exit_code == 0
+        assert "User" in result.output
+        
+        # User explores colors
+        result = cli_runner.invoke(cli, ['colors', '--count', '8'])
+        assert result.exit_code == 0
+        assert "Color Palette Demo" in result.output
+        
+        # User generates multiple greetings
+        result = cli_runner.invoke(cli, ['hello', '--times', '3', '--name', 'Friend'])
+        assert result.exit_code == 0
+        # Should contain multiple greetings
+        hello_count = result.output.count("Hello")
+        assert hello_count >= 3
+    
+    def test_verbose_user_session(self, cli_runner):
+        """Test user session with verbose output."""
+        # User runs commands with verbose flag
+        result = cli_runner.invoke(cli, [
+            '--verbose', 
+            'hello', 
+            '--name', 'VerboseUser',
+            '--style', 'rainbow'
+        ])
+        
+        assert result.exit_code == 0
+        assert "Generating greeting for 'VerboseUser'" in result.output
+        assert "VerboseUser" in result.output
+    
+    def test_animated_greeting_session(self, cli_runner):
+        """Test session with animated greetings."""
+        result = cli_runner.invoke(cli, [
+            'hello',
+            '--name', 'Animated',
+            '--style', 'box',
+            '--animate',
+            '--times', '2'
+        ])
+        
+        assert result.exit_code == 0
+        assert "Animated" in result.output
+
+
+@pytest.mark.integration
+class TestErrorRecoveryWorkflow:
+    """Test error handling and recovery scenarios."""
+    
+    def test_invalid_input_recovery(self, cli_runner):
+        """Test recovery from invalid inputs."""
+        # Try invalid style
+        result = cli_runner.invoke(cli, ['hello', '--style', 'invalid'])
+        assert result.exit_code != 0
+        
+        # Should work with valid style
+        result = cli_runner.invoke(cli, ['hello', '--style', 'simple'])
+        assert result.exit_code == 0
+        
+        # Try invalid count
+        result = cli_runner.invoke(cli, ['colors', '--count', 'invalid'])
+        assert result.exit_code != 0
+        
+        # Should work with valid count
+        result = cli_runner.invoke(cli, ['colors', '--count', '5'])
+        assert result.exit_code == 0
+    
+    def test_config_corruption_recovery(self, temp_config_dir):
+        """Test recovery from corrupted configuration."""
+        config_file = temp_config_dir / "corrupted_config.json"
+        
+        # Create corrupted config file
+        with open(config_file, 'w') as f:
+            f.write("invalid json content {")
+        
+        # Should still load default config
+        loaded_config = load_config(str(config_file))
+        assert loaded_config["default_style"] == "simple"  # Default value
+
+
+@pytest.mark.integration
+class TestPerformanceIntegration:
+    """Integration tests for performance scenarios."""
+    
+    @pytest.mark.slow
+    def test_bulk_greeting_generation(self, performance_timer):
+        """Test generating many greetings efficiently."""
+        generator = HelloWorldGenerator()
+        stats = GreetingStats()
+        
+        performance_timer.start()
+        
+        # Generate 200 greetings across all styles
+        for i in range(50):
+            for style in GreetingStyle:
+                name = f"User{i}"
+                greeting = generator.generate_greeting(name, style)
+                stats.record_greeting(name, style)
+                assert greeting is not None
+        
+        performance_timer.stop()
+        
+        # Verify results
+        final_stats = stats.get_stats()
+        assert final_stats["total_greetings"] == 200
+        assert final_stats["unique_combinations"] == 200  # All unique
+        
+        # Should complete in reasonable time
+        assert performance_timer.elapsed < 30.0  # 30 seconds max
+    
+    @pytest.mark.slow
+    def test_cli_bulk_operations(self, cli_runner, performance_timer):
+        """Test CLI performance with bulk operations."""
+        performance_timer.start()
+        
+        # Run many CLI commands
+        for i in range(20):
+            result = cli_runner.invoke(cli, [
+                'hello', 
+                '--name', f'BulkUser{i}',
+                '--times', '5'
+            ])
+            assert result.exit_code == 0
+        
+        performance_timer.stop()
+        
+        # Should complete efficiently
+        assert performance_timer.elapsed < 15.0  # 15 seconds max
+
+
+@pytest.mark.integration
+class TestCrossModuleIntegration:
+    """Test integration between different modules."""
+    
+    def test_generator_utils_integration(self):
+        """Test integration between generator and utils."""
+        from {{ project_name }}.utils import validate_name, sanitize_name, ColorUtils
+        
+        generator = HelloWorldGenerator()
+        
+        # Test with various names (valid and invalid)
+        test_names = ["Valid", "Invalid@#$", "", "  Whitespace  "]
+        
+        for name in test_names:
+            if validate_name(name):
+                # Should work with valid names
+                greeting = generator.generate_greeting(name, GreetingStyle.SIMPLE)
+                assert greeting is not None
+                assert name in str(greeting)
+            else:
+                # Should work with sanitized names
+                sanitized = sanitize_name(name)
+                greeting = generator.generate_greeting(sanitized, GreetingStyle.SIMPLE)
+                assert greeting is not None
+                assert sanitized in str(greeting)
+    
+    def test_cli_utils_integration(self, cli_runner, temp_config_dir):
+        """Test integration between CLI and utils."""
+        # Create a config file
+        config_data = {
+            "default_style": "fancy",
+            "default_name": "ConfigUser",
+            "colors": ColorUtils.get_color_palette(3)
+        }
+        
+        config_file = temp_config_dir / "cli_integration.json"
+        with open(config_file, 'w') as f:
+            json.dump(config_data, f)
+        
+        # CLI should work regardless of config presence
+        result = cli_runner.invoke(cli, ['hello', '--name', 'IntegrationTest'])
+        assert result.exit_code == 0
+        assert "IntegrationTest" in result.output
+    
+    def test_all_modules_together(self, cli_runner):
+        """Test all modules working together."""
+        from {{ project_name }} import HelloWorldGenerator, GreetingStyle, GreetingStats
+        from {{ project_name }}.utils import ColorUtils, validate_name
+        
+        # Initialize components
+        generator = HelloWorldGenerator()
+        stats = GreetingStats()
+        
+        # Test name validation
+        test_name = "Integration"
+        assert validate_name(test_name) is True
+        
+        # Test color utilities
+        colors = ColorUtils.get_color_palette(3)
+        assert len(colors) == 3
+        
+        # Test greeting generation
+        greeting = generator.generate_greeting(test_name, GreetingStyle.FANCY)
+        assert greeting is not None
+        
+        # Test stats tracking
+        stats.record_greeting(test_name, GreetingStyle.FANCY)
+        final_stats = stats.get_stats()
+        assert final_stats["total_greetings"] == 1
+        
+        # Test CLI integration
+        result = cli_runner.invoke(cli, ['hello', '--name', test_name])
+        assert result.exit_code == 0
+        assert test_name in result.output
+
+
+@pytest.mark.integration
+@pytest.mark.smoke
+class TestApplicationSmokeTests:
+    """Smoke tests for the entire application."""
+    
+    def test_application_startup(self, cli_runner):
+        """Test that application starts up correctly."""
+        result = cli_runner.invoke(cli, ['--help'])
+        assert result.exit_code == 0
+        assert "{{ project_description }}" in result.output
+    
+    def test_core_functionality(self, cli_runner):
+        """Test core application functionality."""
+        # Test main greeting functionality
+        result = cli_runner.invoke(cli, ['hello'])
+        assert result.exit_code == 0
+        assert "Hello" in result.output
+        
+        # Test info display
+        result = cli_runner.invoke(cli, ['info'])
+        assert result.exit_code == 0
+        assert "{{ project_name }}" in result.output
+    
+    def test_all_commands_accessible(self, cli_runner):
+        """Test that all commands are accessible."""
+        commands = ['hello', 'colors', 'info']
+        
+        for command in commands:
+            result = cli_runner.invoke(cli, [command, '--help'])
+            assert result.exit_code == 0
+            assert "Usage:" in result.output
+
+
+@pytest.mark.integration
+class TestDataFlowIntegration:
+    """Test data flow through the application."""
+    
+    def test_greeting_data_flow(self):
+        """Test data flow in greeting generation."""
+        generator = HelloWorldGenerator()
+        stats = GreetingStats()
+        
+        # Test data flows correctly through the system
+        input_name = "DataFlow"
+        input_style = GreetingStyle.RAINBOW
+        
+        # Generate greeting
+        greeting = generator.generate_greeting(input_name, input_style)
+        
+        # Verify greeting contains input data
+        greeting_str = str(greeting).lower()
+        assert input_name.lower() in greeting_str
+        
+        # Track in stats
+        stats.record_greeting(input_name, input_style)
+        
+        # Verify stats contain correct data
+        final_stats = stats.get_stats()
+        expected_key = f"{input_name.lower()}_{input_style.value}"
+        assert expected_key in final_stats["details"]
+        assert final_stats["details"][expected_key] == 1

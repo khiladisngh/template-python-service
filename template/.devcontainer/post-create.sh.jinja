@@ -28,9 +28,8 @@ fi
 # Set up shell configuration
 echo "[*] Setting up shell configuration..."
 
-echo 'eval "$(starship init bash)"' >> ~/.bashrc
+echo 'source ./.zsh_aliases' >> ~/.zshrc
 echo 'eval "$(starship init zsh)"' >> ~/.zshrc
-echo 'eval "$(zoxide init bash)"' >> ~/.bashrc
 echo 'eval "$(zoxide init zsh)"' >> ~/.zshrc
 
 # Install Python dependencies
@@ -71,8 +70,7 @@ git config user.email "khiladisngh@hotmail.com"
 echo "[*] Setting up initial commit..."
 if ! git rev-parse HEAD >/dev/null 2>&1; then
     echo "[*] Creating initial commit..."
-    touch .gitkeep
-    git add .gitkeep
+    git add .
     git commit -m "Initial commit"
 else
     echo "[*] Repository already has commits"

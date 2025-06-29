@@ -18,8 +18,29 @@ test: ## Run all tests with coverage
 test-fast: ## Run tests excluding slow ones
 	./test.sh --fast
 
+test-quick: ## Run quick tests (smoke + unit)
+	./test.sh --quick
+
+test-unit: ## Run unit tests only
+	./test.sh --unit
+
+test-integration: ## Run integration tests only
+	./test.sh --integration
+
+test-smoke: ## Run smoke tests only
+	./test.sh --smoke
+
+test-cli: ## Run CLI tests only
+	./test.sh --cli
+
 test-watch: ## Run tests in watch mode
 	uv run pytest-watch
+
+test-verbose: ## Run tests with verbose output
+	./test.sh --verbose
+
+test-no-cov: ## Run tests without coverage
+	./test.sh --no-cov
 
 # Code quality
 lint: ## Run all linting checks
