@@ -86,9 +86,5 @@
         }
     },
     "remoteUser": "vscode",
-    // Lifecycle hooks
-    "initializeCommand": "echo 'Initializing Python development environment...'",
-    "onCreateCommand": "echo 'Container created successfully!'",
-    "updateContentCommand": "echo 'Updating development environment...'",
-    "postCreateCommand": "bash ./.devcontainer/post-create.sh ${containerWorkspaceFolder}"
+    "postCreateCommand": "bash ./.devcontainer/post-create.sh ${containerWorkspaceFolder}",
 }
