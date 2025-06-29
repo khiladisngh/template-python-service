@@ -1,4 +1,4 @@
-FROM python:{{ python_version }}-slim AS dev
+FROM python:3.12.11-bullseye AS dev
 
 # Arguments associated with the non-root user
 ARG USERNAME=vscode
@@ -13,7 +13,12 @@ ENV UV_CACHE_DIR=/tmp/uv-cache \
     DEBIAN_FRONTEND=noninteractive
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y \
+RUN apt-get update \
+    && apt-get install -y software-properties-common \
+    && add-apt-repository ppa:ezaproject/ppa \
+    && apt-get update \
+    && sudo apt copr enable alternateved/eza \
+    && apt-get install -y \
     bash \
     zsh \
     curl \
@@ -61,7 +66,7 @@ USER ${USERNAME}
 ENV PATH="/root/.cargo/bin:$PATH"
 
 # Set working directory
-WORKDIR /home/${USERNAME}/workspace/{{ project_name }}
+WORKDIR /home/${USERNAME}/workspace/my_awesome_cli
 
 # Install pre-commit for git hooks
 RUN /root/.cargo/bin/uv tool install pre-commit
