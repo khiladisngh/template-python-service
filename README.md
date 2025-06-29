@@ -4,10 +4,11 @@ A [Copier](https://copier.readthedocs.io/en/stable/) template for creating moder
 
 ### ✨ Features
 
-- 🖥️ **CLI Application**: Built with Click for robust command-line interfaces
+- 🎨 **Rich CLI Application**: Beautiful, colorful Hello World app with 4 greeting styles
+- 🧪 **Comprehensive Testing**: 80%+ coverage with unit, integration, smoke tests
+- 📋 **Pytest Excellence**: Fixtures, markers, conftest, parametrized tests
 - ⚡ **Modern Tooling**: Uses [uv](https://docs.astral.sh/uv/) for blazing-fast dependency management
 - 🎨 **Code Quality**: Comprehensive setup with ruff, mypy, and pre-commit hooks
-- 🧪 **Testing**: Complete testing framework with pytest, coverage, and multiple test types
 - 🔒 **Security**: Built-in security scanning with bandit and safety
 - 🐳 **Containerization**: Docker support with optimized multi-stage builds
 - 🚀 **CI/CD**: GitHub Actions workflows for comprehensive testing and deployment
@@ -19,23 +20,45 @@ A [Copier](https://copier.readthedocs.io/en/stable/) template for creating moder
 The template generates a complete project structure with:
 
 ```
-your-cli-app/
-├── src/your_app/           # Source code with CLI and core logic
-├── tests/                  # Comprehensive test suite
+your-hello-world-app/
+├── src/your_app/           # Colorful Hello World application
+│   ├── cli.py             # Rich CLI with 4 greeting styles
+│   ├── hello_world.py     # Core greeting logic & statistics
+│   └── utils.py           # Color utilities & config management
+├── tests/                  # Comprehensive test suite (80%+ coverage)
+│   ├── conftest.py        # Pytest fixtures & markers
+│   ├── test_hello_world.py # Core functionality tests
+│   ├── test_cli.py        # CLI interface tests
+│   ├── test_utils.py      # Utility function tests
+│   └── test_integration.py # Integration tests
+├── demo.py                # Interactive demo script
 ├── .github/workflows/      # CI/CD pipelines
 ├── .devcontainer/          # Dev container configuration
 ├── Configuration files:
-│   ├── pyproject.toml      # Project metadata (focused)
+│   ├── pyproject.toml      # Project metadata with rich/click deps
 │   ├── ruff.toml          # Linting and formatting
-│   ├── pytest.ini        # Test configuration
+│   ├── pytest.ini        # Test configuration with markers
 │   ├── mypy.ini           # Type checking
 │   ├── .coveragerc        # Coverage settings
 │   └── .pre-commit-config.yaml  # Git hooks
+├── test.sh               # Enhanced test runner with categories
 ├── Dockerfile             # Production container
 ├── docker-compose.yml     # Development environment
 ├── Makefile              # Development commands
 └── README.md             # Comprehensive documentation
 ```
+
+### 🎨 Example Application
+
+The template creates a beautiful, colorful Hello World application featuring:
+
+- **4 Greeting Styles**: Simple, Fancy, Rainbow, and Box styles
+- **Color Utilities**: Rich color palettes and utilities
+- **Statistics Tracking**: Track and analyze greeting patterns
+- **Performance Testing**: Benchmarking and optimization
+- **Interactive Demo**: Run `python demo.py` to see all features
+
+See [EXAMPLE.md](EXAMPLE.md) for detailed information about the generated application.
 
 ### 🚀 Quick Start
 
