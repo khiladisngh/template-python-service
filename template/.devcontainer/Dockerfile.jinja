@@ -1,72 +1,151 @@
-FROM python:{{ python_version }}-slim AS dev
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#
+#           🐳 OPTIMIZED PYTHON DEV CONTAINER
+#                  Multi-Stage Build
+#
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-# Arguments associated with the non-root user
+# --------------------------------------------------------------
+# 🏗️ Stage 1: Base System Setup
+# --------------------------------------------------------------
+FROM python:3.12.11-slim AS base
+
+# Build arguments
 ARG USERNAME=vscode
 ARG USER_UID=1000
 ARG USER_GID=${USER_UID}
+ARG DEBIAN_FRONTEND=noninteractive
 
-# Set environment variables for uv
-ENV UV_CACHE_DIR=/tmp/uv-cache \
-    UV_PYTHON_PREFERENCE=only-system \
-    PYTHONUNBUFFERED=1 \
+# Core environment variables
+ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    DEBIAN_FRONTEND=noninteractive
+    UV_CACHE_DIR=/tmp/uv-cache \
+    UV_PYTHON_PREFERENCE=only-system
 
-# Install system dependencies
-RUN apt-get update \
-    && apt-get install -y software-properties-common \
-    && add-apt-repository ppa:ezaproject/ppa \
-    && apt-get update \
-    && sudo apt copr enable alternateved/eza \
-    && apt-get install -y \
-    bash \
-    zsh \
-    curl \
-    git \
-    gnupg \
-    exa \
-    ripgrep \
-    fzf \
-    fontconfig \
-    sudo \
-    eza \
-    ripgrep \
-    bat \
-    fd-find \
-    zoxide \
-    atuin \
-    # We add a symlink because the 'bat' command is 'batcat' on Debian-based systems.
-    && ln -s /usr/bin/batcat /usr/local/bin/bat \
-    # fd-find is the package name for the 'fd' command.
-    && apt-get -y install --no-install-recommends fd-find \
-    && ln -s $(which fdfind) /usr/local/bin/fd \
-    # Clean up apt lists to keep the image size down.
-    && apt-get clean -y && rm -rf /var/lib/apt/lists/*
-
-# Install uv
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Copy our aliases file into a system-wide location
-COPY aliases.sh /etc/profile.d/aliases.sh
-
-# Add the non-root user
+# Create non-root user early
 RUN groupadd --gid "${USER_GID}" "${USERNAME}" \
     && useradd --uid "${USER_UID}" --gid "${USER_GID}" -m "${USERNAME}" \
     && mkdir -p /home/${USERNAME}/.vscode-server /home/${USERNAME}/.vscode-server-insiders \
     && chown ${USER_UID}:${USER_GID} /home/${USERNAME}/.vscode-server*
 
-# Install FiraCode and JetBrains Mono Nerd Fonts
-RUN echo -e "15" | bash -c "$(curl -fsSL https://raw.githubusercontent.com/officialrajdeepsingh/nerd-fonts-installer/main/install.sh)" \
-    && echo -e "28" | bash -c "$(curl -fsSL https://raw.githubusercontent.com/officialrajdeepsingh/nerd-fonts-installer/main/install.sh)"
+# Install essential system packages with cache mount
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
+    # Core system tools
+    curl \
+    wget \
+    git \
+    ca-certificates \
+    gnupg \
+    sudo \
+    # Build essentials (needed for some Python packages)
+    build-essential \
+    # Shell and terminal
+    bash \
+    zsh \
+    # Clean up happens automatically due to cache mount
+    && rm -rf /var/lib/apt/lists/*
 
-# Switch to the non-root user
+# Install uv (Python package manager) - single download
+RUN --mount=type=cache,target=/tmp/uv-install \
+    curl -LsSf https://astral.sh/uv/install.sh | sh \
+    && cp /root/.local/bin/uv /usr/local/bin/uv \
+    && chmod 755 /usr/local/bin/uv
+
+# --------------------------------------------------------------
+# 🛠️ Stage 2: Development Tools
+# --------------------------------------------------------------
+FROM base AS dev-tools
+
+# Install modern CLI tools in parallel batches
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
+    # File and text processing tools
+    ripgrep \
+    fzf \
+    unzip \
+    fontconfig \
+    # Network tools
+    iputils-ping \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install eza (modern ls replacement) - separate for better caching
+RUN --mount=type=cache,target=/tmp/eza-cache \
+    mkdir -p /etc/apt/keyrings \
+    && wget -qO- https://raw.githubusercontent.com/eza-community/eza/main/deb.asc | gpg --dearmor -o /etc/apt/keyrings/gierens.gpg \
+    && echo "deb [signed-by=/etc/apt/keyrings/gierens.gpg] http://deb.gierens.de stable main" | tee /etc/apt/sources.list.d/gierens.list \
+    && chmod 644 /etc/apt/keyrings/gierens.gpg /etc/apt/sources.list.d/gierens.list \
+    && apt-get update \
+    && apt-get install -y eza
+
+# Create symbolic links for better tool names
+RUN ln -sf /usr/bin/fdfind /usr/local/bin/fd 2>/dev/null || true
+
+# Install Starship (fast prompt) - remote fetch optimization
+RUN --mount=type=cache,target=/tmp/starship-cache \
+    curl -sS https://starship.rs/install.sh | sh -s -- --yes
+
+# --------------------------------------------------------------
+# 🎨 Stage 3: Fonts (Optional Heavy Assets)
+# --------------------------------------------------------------
+FROM dev-tools AS fonts
+
+# Install Nerd Fonts using remote fetch (Docker Build Cloud optimization)
+RUN --mount=type=cache,target=/tmp/fonts-cache \
+    mkdir -p /usr/share/fonts/truetype/nerd-fonts \
+    && cd /tmp/fonts-cache \
+    && curl -fLo FiraCode.zip https://github.com/ryanoasis/nerd-fonts/releases/latest/download/FiraCode.zip \
+    && curl -fLo JetBrainsMono.zip https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.zip \
+    && unzip -o -j FiraCode.zip "*.ttf" -d /usr/share/fonts/truetype/nerd-fonts/ \
+    && unzip -o -j JetBrainsMono.zip "*.ttf" -d /usr/share/fonts/truetype/nerd-fonts/ \
+    && fc-cache -fv
+
+# --------------------------------------------------------------
+# 🐍 Stage 4: Python Environment (Cached)
+# --------------------------------------------------------------
+FROM fonts AS python-deps
+
+# Switch to non-root user for Python setup
+USER ${USERNAME}
+WORKDIR /home/${USERNAME}/workspace/{{ project_name }}
+
+# Pre-create common directories
+RUN mkdir -p \
+    /home/${USERNAME}/.cache \
+    /home/${USERNAME}/.local \
+    /home/${USERNAME}/.config
+
+# --------------------------------------------------------------
+# 🚀 Stage 5: Final Development Image
+# --------------------------------------------------------------
+FROM python-deps AS dev
+
+# Copy aliases configuration
+COPY --chown=${USERNAME}:${USERNAME} aliases.sh /etc/profile.d/aliases.sh
+
+# Install bat with symlink fix (Debian naming issue)
+USER root
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends bat \
+    && ln -sf /usr/bin/batcat /usr/local/bin/bat \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install zoxide (smart cd)
+RUN --mount=type=cache,target=/tmp/zoxide-cache \
+    curl -sS https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | bash \
+    && mv /root/.local/bin/zoxide /usr/local/bin/
+
+# Switch back to development user
 USER ${USERNAME}
 
-# Add uv to PATH for the vscode user
-ENV PATH="/root/.cargo/bin:$PATH"
+# Set final working directory
+WORKDIR /home/${USERNAME}/workspace/{{ project_name }}
 
-# Set working directory
-WORKDIR /home/${USERNAME}/workspace/my_awesome_cli
+# Health check for development environment
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD uv --version && python --version || exit 1
 
-# Install pre-commit for git hooks
-RUN /root/.cargo/bin/uv tool install pre-commit
+# Keep container running for development
+CMD ["/bin/sh", "-c", "while sleep 1000; do :; done"]

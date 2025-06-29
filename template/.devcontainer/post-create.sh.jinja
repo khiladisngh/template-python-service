@@ -1,0 +1,92 @@
+#!/bin/bash
+
+set -e
+
+echo "[*] Setting up development environment..."
+echo "[*] Current directory: $(pwd)"
+echo "[*] Current user: $(whoami)"
+
+# Navigate to the correct workspace directory
+WORKSPACE_DIR="${1:-/home/vscode/workspace/{{ project_name \}\}}"
+cd "$WORKSPACE_DIR"
+echo "[*] Working in directory: $(pwd)"
+
+# Install Oh My Zsh and plugins
+echo "[*] Installing Oh My Zsh..."
+if [ ! -d "$HOME/.oh-my-zsh" ]; then
+    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+fi
+
+if [ ! -d "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-autosuggestions" ]; then
+    git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
+fi
+
+if [ ! -d "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting" ]; then
+    git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
+fi
+
+# Set up shell configuration
+echo "[*] Setting up shell configuration..."
+
+echo 'eval "$(starship init bash)"' >> ~/.bashrc
+echo 'eval "$(starship init zsh)"' >> ~/.zshrc
+echo 'eval "$(zoxide init bash)"' >> ~/.bashrc
+echo 'eval "$(zoxide init zsh)"' >> ~/.zshrc
+
+# Install Python dependencies
+echo "[*] Installing Python dependencies..."
+export UV_LINK_MODE=copy
+export UV_CACHE_DIR=/home/vscode/.cache/uv
+/usr/local/bin/uv sync
+
+# Install pre-commit as a tool
+echo "[*] Installing pre-commit tool..."
+/usr/local/bin/uv tool install pre-commit --force
+
+# Verify Python environment
+echo "[*] Verifying Python environment..."
+/usr/local/bin/uv run python --version
+
+# Initialize git repository
+echo "[*] Setting up Git repository..."
+
+# Handle git ownership issues more robustly
+echo "[*] Configuring git for container environment..."
+git config --global --add safe.directory '*'
+git config --global init.defaultBranch main
+
+if [ ! -d ".git" ]; then
+    echo "[*] Initializing new Git repository..."
+    git init
+else
+    echo "[*] Git repository already exists"
+fi
+
+# Configure git user
+echo "[*] Configuring git user..."
+git config user.name "Gishant Singh"
+git config user.email "khiladisngh@hotmail.com"
+
+# Create initial commit if needed
+echo "[*] Setting up initial commit..."
+if ! git rev-parse HEAD >/dev/null 2>&1; then
+    echo "[*] Creating initial commit..."
+    touch .gitkeep
+    git add .gitkeep
+    git commit -m "Initial commit"
+else
+    echo "[*] Repository already has commits"
+fi
+
+# Install pre-commit hooks
+echo "[*] Installing pre-commit hooks..."
+/usr/local/bin/uv run pre-commit install
+/usr/local/bin/uv run pre-commit install --hook-type commit-msg
+
+echo "[+] Development environment setup complete!"
+echo ""
+echo "[*] Quick commands:"
+echo "  uv run {{ project_name }} --help        # Run the CLI"
+echo "  ./test.sh                       # Run tests"
+echo "  ./lint.sh                       # Run linting"
+echo "  uv run pre-commit run --all-files  # Run all pre-commit hooks"

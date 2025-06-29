@@ -11,6 +11,9 @@ services:
     container_name: {{ project_name }}-dev
     # Prevent the container from exiting after initialisation
     command: /bin/sh -c "while sleep 1000; do :; done"
+    
+    # Fix ownership issues by running as the correct user
+    user: "1000:1000"
 
     volumes:
       # Bind mount source code
