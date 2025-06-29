@@ -6,12 +6,89 @@ services:
       context: .
       dockerfile: Dockerfile
       target: dev
+      # Enable BuildKit for better caching and parallel builds
+      cache_from:
+        - type=gha
+        - type=local,src=/tmp/.buildx-cache
+      cache_to:
+        - type=gha,mode=max
+        - type=local,dest=/tmp/.buildx-cache,mode=max
+      # Build arguments for customization
+      args:
+        USERNAME: vscode
+        USER_UID: 1000
+        USER_GID: 1000
 
     image: {{ project_name }}-dev
     container_name: {{ project_name }}-dev
-    # Prevent the container from exiting after initialisation
+    
+    # Keep container running for development
     command: /bin/sh -c "while sleep 1000; do :; done"
-
+    
+    # Development environment variables
+    environment:
+      - PYTHONPATH=/home/vscode/workspace/{{ project_name }}
+      - UV_CACHE_DIR=/home/vscode/.cache/uv
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+    
     volumes:
-      # Bind mount source code
+      # Primary workspace mount (cached for performance)
       - ..:/home/vscode/workspace/{{ project_name }}:cached
+      
+      # Persistent cache volumes for better performance
+      - uv-cache:/home/vscode/.cache/uv
+      - zsh-cache:/home/vscode/.cache/zsh
+      - git-cache:/home/vscode/.cache/git
+      
+      # Optional: Mount host git config for seamless git workflow
+      - ${HOME}/.gitconfig:/home/vscode/.gitconfig:ro
+      - ${HOME}/.ssh:/home/vscode/.ssh:ro
+      
+      # Optional: Preserve shell history
+      - zsh-history:/home/vscode/.zsh_history
+    
+    # Network configuration for development
+    networks:
+      - {{ project_name }}-network
+    
+    # Resource limits for development (adjust as needed)
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+    
+    # Development ports (add as needed)
+    ports:
+      - "8000:8000"  # Common Python web server port
+      - "5000:5000"  # Flask default
+      - "8080:8080"  # Alternative web port
+    
+    # Health check for container status
+    healthcheck:
+      test: ["CMD", "python", "--version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+# Named volumes for persistence and performance
+volumes:
+  uv-cache:
+    name: {{ project_name }}-uv-cache
+  zsh-cache:
+    name: {{ project_name }}-zsh-cache  
+  git-cache:
+    name: {{ project_name }}-git-cache
+  zsh-history:
+    name: {{ project_name }}-zsh-history
+
+# Network for service communication
+networks:
+  {{ project_name }}-network:
+    name: {{ project_name }}-network
+    driver: bridge
